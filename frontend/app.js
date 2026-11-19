@@ -594,7 +594,9 @@ async function startLiveVoice() {
         socket.send(JSON.stringify({
           setup: {
             model: `models/${credentials.model}`,
-            responseModalities: ['AUDIO'],
+            generationConfig: {
+              responseModalities: ['AUDIO'],
+            },
             inputAudioTranscription: {},
             outputAudioTranscription: {},
           },
