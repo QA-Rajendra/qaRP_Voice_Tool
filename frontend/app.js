@@ -21,57 +21,18 @@ const reportFieldGrid = document.querySelector('#report-field-grid');
 const reportStatus = document.querySelector('#report-status');
 const saveConfirmation = document.querySelector('#save-confirmation');
 const confirmSaveButton = document.querySelector('#confirm-save-button');
-const bugReportTableBody = document.querySelector('#bug-report-table-body');
-const bugListStatus = document.querySelector('#bug-list-status');
-const reportSearch = document.querySelector('#report-search');
-const statusFilter = document.querySelector('#status-filter');
-const severityFilter = document.querySelector('#severity-filter');
-const previousPageButton = document.querySelector('#previous-page-button');
-const nextPageButton = document.querySelector('#next-page-button');
-const pageIndicator = document.querySelector('#page-indicator');
 const deleteConfirmation = document.querySelector('#delete-confirmation');
 const confirmDeleteButton = document.querySelector('#confirm-delete-button');
-const qaExportPanel = document.querySelector('#qa-export-panel');
-const exportFieldOptions = document.querySelector('#export-field-options');
-const exportSelectedCount = document.querySelector('#export-selected-count');
-const exportStatus = document.querySelector('#export-status');
-const qaStatus = document.querySelector('#qa-status');
-const qaSuggestionsEditor = document.querySelector('#qa-suggestions-editor');
-const generateQaButton = document.querySelector('#generate-qa-button');
-const copyQaButton = document.querySelector('#copy-qa-button');
-const applyQaButton = document.querySelector('#apply-qa-button');
 const copyReportButton = document.querySelector('#copy-report-button');
 const reportCopyPreview = document.querySelector('#report-copy-preview');
 const analysisFacts = document.querySelector('#analysis-facts');
 const analysisOpenItems = document.querySelector('#analysis-open-items');
-const exportCenterReport = document.querySelector('#export-center-report');
-const openExportCenterButton = document.querySelector('#open-export-center-button');
-const exportCenterStatus = document.querySelector('#export-center-status');
-const settingsModel = document.querySelector('#settings-model');
 const apiStatus = document.querySelector('#api-status');
 const apiStatusLabel = document.querySelector('#api-status-label');
 const apiStatusRefresh = document.querySelector('#api-status-refresh');
 const apiKeyForm = document.querySelector('#api-key-form');
 const apiKeyInput = document.querySelector('#api-key-input');
 const apiKeyCheck = document.querySelector('#api-key-check');
-const settingsLiveModel = document.querySelector('#settings-live-model');
-const settingsUploadLimit = document.querySelector('#settings-upload-limit');
-const researchQuery = document.querySelector('#research-query');
-const researchButton = document.querySelector('#research-button');
-const researchStatus = document.querySelector('#research-status');
-const researchAnswer = document.querySelector('#research-answer');
-const researchSources = document.querySelector('#research-sources');
-const screenshotInput = document.querySelector('#screenshot-file');
-const imageDropZone = document.querySelector('#image-drop-zone');
-const imagePreview = document.querySelector('#image-preview');
-const screenshotPreview = document.querySelector('#screenshot-preview');
-const screenshotFilename = document.querySelector('#screenshot-filename');
-const screenshotSizeLimit = document.querySelector('#screenshot-size-limit');
-const uploadProgress = document.querySelector('#upload-progress');
-const screenshotStatus = document.querySelector('#screenshot-status');
-const analyzeScreenshotButton = document.querySelector('#analyze-screenshot-button');
-const screenshotFindingsList = document.querySelector('#screenshot-findings');
-const removeScreenshotButton = document.querySelector('#remove-screenshot-button');
 
 let recognition;
 let isRecognizing = false;
@@ -94,23 +55,6 @@ let clarificationReady = false;
 let formDefinition = [];
 let currentReport = null;
 let sourceTextForBadges = '';
-let selectedAttachment = null;
-let screenshotObjectUrl = null;
-let acceptedScreenshotFindings = [];
-let activeUploadRequest = null;
-let currentListPage = 1;
-let totalListPages = 1;
-let pendingDeleteId = '';
-let currentQaSuggestions = null;
-let maxUploadMb = null;
-
-const QA_CATEGORIES = [
-  ['reproductionSteps', 'Suggested reproduction steps'],
-  ['positiveScenarios', 'Positive scenarios'],
-  ['negativeScenarios', 'Negative scenarios'],
-  ['boundaryScenarios', 'Boundary scenarios'],
-  ['regressionCases', 'Regression cases'],
-];
 
 function updateCharacterCount() {
   const count = description.value.length;
@@ -328,7 +272,10 @@ function playLiveAudio(base64Audio) {
 
 function handleLiveMessage(message) {
   if (message.setupComplete || message.setup_complete) return { setupComplete: true };
-  if (message.error) throw new Error('Gemini Live reported a session error.');
+  if (message.error) {
+    const detail = typeof message.error.message === 'string' ? message.error.message.slice(0, 240) : '';
+    throw new Error(detail ? `Gemini Live: ${detail}` : 'Gemini Live reported a session error.');
+  }
   const serverContent = message.serverContent || message.server_content;
   if (!serverContent) return { setupComplete: false };
 
@@ -433,9 +380,12 @@ async function startLiveVoice() {
           rejectConnection(error);
         }
       };
-      socket.onerror = () => rejectConnection(new Error('Gemini Live could not connect. Check the network and API access.'));
-      socket.onclose = () => {
-        if (!settled) rejectConnection(new Error('Gemini Live closed before the session was ready.'));
+      socket.onerror = () => {};
+      socket.onclose = (event) => {
+        const details = [event.code ? `code ${event.code}` : '', event.reason || ''].filter(Boolean).join(': ');
+        if (!settled) rejectConnection(new Error(details
+          ? `Gemini Live closed before setup completed (${details}). Check Live model access and API key restrictions.`
+          : 'Gemini Live closed before setup completed. Check Live model access and API key restrictions.'));
         if (sessionId === liveSessionCounter && liveSocket === socket) {
           liveSocket = null;
           liveStarting = false;
@@ -487,369 +437,6 @@ async function requestClarification() {
     description: description.value.trim(),
     messages: conversationMessages,
   });
-}
-
-function renderResearchSources(sources) {
-  researchSources.replaceChildren();
-  for (const source of sources) {
-    let url;
-    try {
-      url = new URL(source.url);
-    } catch (_error) {
-      continue;
-    }
-    if (!['http:', 'https:'].includes(url.protocol)) continue;
-    const item = document.createElement('li');
-    const link = document.createElement('a');
-    link.href = url.href;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    link.textContent = source.title || url.hostname;
-    item.append(link);
-    researchSources.append(item);
-  }
-}
-
-async function researchTechnicalQuestion() {
-  const query = researchQuery.value.trim();
-  if (!query) {
-    researchQuery.focus();
-    researchStatus.textContent = 'Enter a technical question to research.';
-    return;
-  }
-  researchButton.disabled = true;
-  researchButton.textContent = 'Searching...';
-  researchStatus.textContent = 'Searching the web for sourced context...';
-  researchAnswer.textContent = '';
-  researchSources.replaceChildren();
-  try {
-    const result = await postJson('/api/research', { query });
-    researchAnswer.textContent = result.answer;
-    renderResearchSources(result.sources);
-    researchStatus.textContent = result.sources.length ? `${result.sources.length} source(s) found. Research is shown separately from your facts.` : 'No source citations were returned.';
-  } catch (error) {
-    researchStatus.textContent = error.message;
-  } finally {
-    researchButton.disabled = false;
-    researchButton.textContent = 'Research';
-  }
-}
-
-function updateReportFieldValue(field) {
-  const control = reportFieldGrid.querySelector(`[data-report-field="${field}"]`);
-  if (control) {
-    if (field === 'attachmentReferences') {
-      control.value = currentReport.attachmentReferences.map((item) => `${item.id} | ${item.name}`).join('\n');
-    } else if (field === 'screenshotFindings') {
-      control.value = currentReport.screenshotFindings.join('\n');
-    }
-  }
-  if (currentReport) updateBadge(field, isBlankValue(field, currentReport[field]) ? 'missing' : 'suggested');
-  if (currentReport) updateFormattedReportPreview();
-}
-
-function syncScreenshotContextToReport() {
-  if (!currentReport) return;
-  currentReport.screenshotFindings = [...acceptedScreenshotFindings];
-  if (selectedAttachment && !currentReport.attachmentReferences.some((item) => item.id === selectedAttachment.id)) {
-    currentReport.attachmentReferences.push({ id: selectedAttachment.id, name: selectedAttachment.id });
-  }
-  updateReportFieldValue('screenshotFindings');
-  updateReportFieldValue('attachmentReferences');
-}
-
-function setUploadStatus(message) {
-  screenshotStatus.textContent = message;
-}
-
-async function loadPublicConfig() {
-  try {
-    const response = await fetch('/api/config');
-    if (!response.ok) throw new Error('Could not load the upload size limit.');
-    const config = await response.json();
-    if (!Number.isInteger(config.maxUploadMb) || config.maxUploadMb < 1 || config.maxUploadMb > 20) throw new Error('Invalid public configuration.');
-    maxUploadMb = config.maxUploadMb;
-    screenshotSizeLimit.textContent = `PNG, JPEG, WebP, or GIF · up to ${maxUploadMb} MB`;
-    settingsModel.textContent = config.geminiModel;
-    settingsLiveModel.textContent = config.geminiLiveModel;
-    settingsUploadLimit.textContent = `${maxUploadMb} MB`;
-  } catch (_error) {
-    screenshotSizeLimit.textContent = `PNG, JPEG, WebP, or GIF · server limit applies`;
-    settingsModel.textContent = 'Unavailable';
-    settingsLiveModel.textContent = 'Unavailable';
-    settingsUploadLimit.textContent = 'Server configured';
-  }
-}
-
-async function checkGeminiStatus() {
-  apiStatus.dataset.state = 'checking';
-  apiStatusLabel.textContent = 'Checking Gemini…';
-  apiStatusRefresh.disabled = true;
-  try {
-    const response = await fetch('/api/gemini/status', { method: 'POST' });
-    if (!response.ok) throw new Error('Gemini connection check failed.');
-    const result = await response.json();
-    if (result.connected) {
-      apiStatus.dataset.state = 'connected';
-      apiStatusLabel.textContent = 'Gemini connected';
-    } else {
-      apiStatus.dataset.state = 'disconnected';
-      apiStatusLabel.textContent = result.configured === false ? 'API key not configured' : 'Gemini not connected';
-    }
-  } catch (_error) {
-    apiStatus.dataset.state = 'disconnected';
-    apiStatusLabel.textContent = 'Gemini not connected';
-  } finally {
-    apiStatusRefresh.disabled = false;
-  }
-}
-
-apiKeyForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const apiKey = apiKeyInput.value.trim();
-  if (!apiKey) {
-    apiStatus.dataset.state = 'disconnected';
-    apiStatusLabel.textContent = 'Enter an API key';
-    apiKeyInput.focus();
-    return;
-  }
-
-  apiStatus.dataset.state = 'checking';
-  apiStatusLabel.textContent = 'Checking API key…';
-  apiKeyCheck.disabled = true;
-  apiStatusRefresh.disabled = true;
-  try {
-    const response = await fetch('/api/gemini/key', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apiKey }),
-    });
-    const result = await response.json();
-    apiStatus.dataset.state = result.connected ? 'connected' : 'disconnected';
-    apiStatusLabel.textContent = result.connected ? 'Gemini connected' : 'Key not connected';
-    apiKeyInput.value = '';
-  } catch (_error) {
-    apiStatus.dataset.state = 'disconnected';
-    apiStatusLabel.textContent = 'Connection check failed';
-    apiKeyInput.value = '';
-  } finally {
-    apiKeyCheck.disabled = false;
-    apiStatusRefresh.disabled = false;
-  }
-});
-
-function startImageUpload(file) {
-  const body = new FormData();
-  body.append('image', file);
-  const request = new XMLHttpRequest();
-  activeUploadRequest = request;
-  uploadProgress.hidden = false;
-  uploadProgress.value = 0;
-  analyzeScreenshotButton.hidden = true;
-  setUploadStatus('Uploading image...');
-  request.open('POST', '/api/attachments');
-  request.upload.addEventListener('progress', (event) => {
-    if (event.lengthComputable) uploadProgress.value = Math.round((event.loaded / event.total) * 100);
-  });
-  request.addEventListener('load', () => {
-    activeUploadRequest = null;
-    let result = {};
-    try { result = JSON.parse(request.responseText); } catch (_error) { /* Show a safe generic error below. */ }
-    if (request.status < 200 || request.status >= 300) {
-      setUploadStatus(result.error?.message || 'The image upload failed.');
-      return;
-    }
-    selectedAttachment = result;
-    screenshotFilename.textContent = result.name;
-    analyzeScreenshotButton.hidden = false;
-    uploadProgress.value = 100;
-    setUploadStatus('Image uploaded. Analyze it to review visible findings.');
-    syncScreenshotContextToReport();
-  });
-  request.addEventListener('error', () => {
-    activeUploadRequest = null;
-    setUploadStatus('The image upload failed. Check the local server and try again.');
-  });
-  request.addEventListener('abort', () => { activeUploadRequest = null; });
-  request.send(body);
-}
-
-async function chooseScreenshot(file) {
-  if (!file) return;
-  const acceptedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
-  if (!acceptedTypes.includes(file.type)) {
-    setUploadStatus('Choose a PNG, JPEG, WebP, or GIF image.');
-    return;
-  }
-  if (maxUploadMb && file.size > maxUploadMb * 1024 * 1024) {
-    setUploadStatus(`This image is larger than ${maxUploadMb} MB. Choose a smaller file.`);
-    return;
-  }
-  if (selectedAttachment || screenshotObjectUrl) await removeScreenshot();
-  screenshotObjectUrl = URL.createObjectURL(file);
-  screenshotPreview.src = screenshotObjectUrl;
-  screenshotFilename.textContent = file.name;
-  imagePreview.hidden = false;
-  screenshotFindingsList.replaceChildren();
-  acceptedScreenshotFindings = [];
-  startImageUpload(file);
-}
-
-async function removeScreenshot() {
-  if (activeUploadRequest) activeUploadRequest.abort();
-  const attachmentToDelete = selectedAttachment;
-  selectedAttachment = null;
-  if (screenshotObjectUrl) URL.revokeObjectURL(screenshotObjectUrl);
-  screenshotObjectUrl = null;
-  screenshotPreview.removeAttribute('src');
-  imagePreview.hidden = true;
-  uploadProgress.hidden = true;
-  analyzeScreenshotButton.hidden = true;
-  screenshotFindingsList.replaceChildren();
-  acceptedScreenshotFindings = [];
-  if (currentReport) {
-    currentReport.attachmentReferences = currentReport.attachmentReferences.filter((item) => item.id !== attachmentToDelete?.id);
-    currentReport.screenshotFindings = [];
-    updateReportFieldValue('attachmentReferences');
-    updateReportFieldValue('screenshotFindings');
-  }
-  if (attachmentToDelete) {
-    try {
-      const response = await fetch(`/api/attachments/${encodeURIComponent(attachmentToDelete.id)}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error('Delete failed');
-      setUploadStatus('Image removed.');
-    } catch (_error) {
-      setUploadStatus('The local preview was removed, but the uploaded file could not be deleted.');
-    }
-  } else {
-    setUploadStatus('Image removed.');
-  }
-}
-
-function renderScreenshotFinding(finding, index) {
-  const item = document.createElement('li');
-  item.className = 'screenshot-finding';
-  const title = document.createElement('strong');
-  title.textContent = `${finding.category}: ${finding.observation}`;
-  const evidence = document.createElement('p');
-  evidence.textContent = `Visible evidence: ${finding.visibleEvidence}`;
-  const actions = document.createElement('div');
-  actions.className = 'finding-actions';
-  const accept = document.createElement('button');
-  accept.type = 'button';
-  accept.className = 'button accept-finding';
-  accept.textContent = 'Accept suggestion';
-  const reject = document.createElement('button');
-  reject.type = 'button';
-  reject.className = 'button reject-finding';
-  reject.textContent = 'Reject';
-  const findingText = `${finding.category}: ${finding.observation} Visible evidence: ${finding.visibleEvidence}`;
-  accept.addEventListener('click', () => {
-    if (!acceptedScreenshotFindings.includes(findingText)) acceptedScreenshotFindings.push(findingText);
-    syncScreenshotContextToReport();
-    actions.replaceChildren(document.createTextNode('Accepted as an AI suggestion'));
-  });
-  reject.addEventListener('click', () => {
-    acceptedScreenshotFindings = acceptedScreenshotFindings.filter((text) => text !== findingText);
-    syncScreenshotContextToReport();
-    actions.replaceChildren(document.createTextNode('Rejected'));
-  });
-  actions.append(accept, reject);
-  item.append(title, evidence, actions);
-  item.dataset.findingIndex = String(index);
-  return item;
-}
-
-async function analyzeScreenshot() {
-  if (!selectedAttachment) return;
-  analyzeScreenshotButton.disabled = true;
-  analyzeScreenshotButton.textContent = 'Analyzing...';
-  setUploadStatus('Checking only what is visible in the image...');
-  screenshotFindingsList.replaceChildren();
-  acceptedScreenshotFindings = [];
-  try {
-    const result = await postJson(`/api/attachments/${encodeURIComponent(selectedAttachment.id)}/analyze`, {});
-    if (!result.findings.length) {
-      setUploadStatus('No clear visual findings were identified.');
-      return;
-    }
-    for (const [index, finding] of result.findings.entries()) {
-      screenshotFindingsList.append(renderScreenshotFinding(finding, index));
-    }
-    setUploadStatus('Review each finding. Accepted findings stay marked as AI suggestions.');
-  } catch (error) {
-    setUploadStatus(error.message);
-  } finally {
-    analyzeScreenshotButton.disabled = false;
-    analyzeScreenshotButton.textContent = 'Analyze screenshot';
-  }
-}
-
-async function handleClarification({ initial = false } = {}) {
-  if (!description.value.trim()) {
-    statusTitle.textContent = 'Add a bug description';
-    statusMessage.textContent = 'Describe what happened before asking follow-up questions.';
-    description.focus();
-    return;
-  }
-
-  clarifyButton.disabled = true;
-  sendAnswerButton.disabled = true;
-  clarifyButton.textContent = 'Thinking...';
-  statusTitle.textContent = 'Reviewing missing details';
-  statusMessage.textContent = 'Your description is being checked for important missing information.';
-  clarificationPanel.hidden = false;
-  if (initial && !initialMessageShown) {
-    appendChatMessage('user', description.value.trim());
-    initialMessageShown = true;
-  }
-
-  try {
-    const result = await requestClarification();
-    if (result.cleanDescription) {
-      description.value = result.cleanDescription;
-      updateCharacterCount();
-    }
-    if (result.readyToGenerate) {
-      clarificationReady = true;
-      answerForm.hidden = true;
-      appendChatMessage('assistant', 'The description is ready for report generation. You can still edit it above.');
-      statusTitle.textContent = 'Ready for the next step';
-      statusMessage.textContent = 'Review the clean description. You can generate a report now.';
-      clarifyButton.textContent = 'Description reviewed';
-      return;
-    }
-
-    for (const question of result.clarifyingQuestions) {
-      conversationMessages.push({ role: 'assistant', content: question });
-      appendChatMessage('assistant', question);
-    }
-    answerForm.hidden = false;
-    answerInput.focus();
-    statusTitle.textContent = 'A few details would help';
-    statusMessage.textContent = 'Answer what you know. Leave anything unknown blank.';
-    clarifyButton.textContent = 'Ask follow-up questions';
-  } catch (error) {
-    statusTitle.textContent = 'Clarification failed';
-    statusMessage.textContent = error.message;
-    clarifyButton.textContent = 'Try clarification again';
-  } finally {
-    clarifyButton.disabled = clarificationReady;
-    sendAnswerButton.disabled = false;
-  }
-}
-
-function answeredClarifications() {
-  const pairs = [];
-  for (let index = 0; index < conversationMessages.length - 1; index += 1) {
-    const question = conversationMessages[index];
-    const answer = conversationMessages[index + 1];
-    if (question.role === 'assistant' && answer.role === 'user') {
-      pairs.push({ question: question.content, answer: answer.content });
-      index += 1;
-    }
-  }
-  return pairs;
 }
 
 function labelForBadge(value) {
@@ -1021,14 +608,6 @@ function createFieldCard(fieldInfo) {
 function renderReportForm(result, sourceText) {
   currentReport = result.report;
   sourceTextForBadges = sourceText;
-  currentQaSuggestions = null;
-  qaSuggestionsEditor.replaceChildren();
-  qaStatus.textContent = '';
-  copyQaButton.disabled = true;
-  applyQaButton.disabled = true;
-  qaExportPanel.hidden = !currentReport.reportId;
-  copyReportButton.disabled = !currentReport.reportId;
-  exportStatus.textContent = '';
   renderAnalysis(result);
   updateFormattedReportPreview();
   reportFieldGrid.replaceChildren();
@@ -1077,11 +656,6 @@ function formatReportValue(field, value) {
 
 function formattedBugReport(report) {
   const environment = [report.environment, report.operatingSystemPlatform].filter(Boolean).join(' | ') || 'Not provided';
-  const attachments = [
-    ...(report.attachmentReferences || []).map((item) => item.name || item.id),
-    ...(report.screenshotFindings || []).map((item) => `Screenshot finding: ${item}`),
-    ...(report.logsEvidence ? [`Logs: ${report.logsEvidence}`] : []),
-  ];
   const lines = [
     '# BUG REPORT',
     '',
@@ -1096,20 +670,12 @@ function formattedBugReport(report) {
     `Browser / Device: ${formatReportValue('browserDevice', report.browserDevice)}`,
     `Severity: ${formatReportValue('severity', report.severity)}`,
     `Priority: ${formatReportValue('priority', report.priority)}`,
-    'Preconditions:',
-    formatReportValue('preconditions', report.preconditions),
-    'Test Data:',
-    formatReportValue('testData', report.testData),
     'Steps to Reproduce:',
     formatReportValue('reproductionSteps', report.reproductionSteps),
     `Expected Result: ${formatReportValue('expectedResult', report.expectedResult)}`,
     `Actual Result: ${formatReportValue('actualResult', report.actualResult)}`,
     `Status: ${formatReportValue('status', report.status)}`,
-    `Assigned To: ${formatReportValue('assignee', report.assignee)}`,
     `Reported By: ${formatReportValue('reporter', report.reporter)}`,
-    `Reported Date: ${formatReportValue('reportedDate', report.reportedDate)}`,
-    'Attachment: Screenshot / Video / Logs',
-    attachments.length ? attachments.map((item, index) => `${index + 1}. ${item}`).join('\n') : 'Not provided',
     `Remarks: ${formatReportValue('remarks', report.remarks)}`,
   ];
   return lines.join('\n');
@@ -1140,324 +706,11 @@ function renderAnalysis(result) {
   ], 'No assumptions or missing details recorded.');
 }
 
-function buildExportFieldOptions() {
-  exportFieldOptions.replaceChildren();
-  for (const field of formDefinition) {
-    const label = document.createElement('label');
-    label.className = 'export-field-option';
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.value = field.name;
-    checkbox.checked = true;
-    checkbox.addEventListener('change', updateExportSelectedCount);
-    const text = document.createElement('span');
-    text.textContent = field.label;
-    label.append(checkbox, text);
-    exportFieldOptions.append(label);
-  }
-  updateExportSelectedCount();
-}
-
-function getSelectedExportFields() {
-  const fields = [...exportFieldOptions.querySelectorAll('input[type="checkbox"]:checked')].map((input) => input.value);
-  if (!fields.length) exportStatus.textContent = 'Choose at least one field to export.';
-  return fields;
-}
-
-function updateExportSelectedCount() {
-  const selected = exportFieldOptions.querySelectorAll('input[type="checkbox"]:checked').length;
-  exportSelectedCount.textContent = `(${selected} selected)`;
-}
-
-async function downloadReportExport(format) {
-  if (!currentReport?.reportId) return;
-  const fields = getSelectedExportFields();
-  if (!fields.length) return;
-  exportStatus.textContent = `Preparing ${format.toUpperCase()} export...`;
-  try {
-    const query = new URLSearchParams({ format, fields: fields.join(',') });
-    const response = await fetch(`/api/bug-reports/${encodeURIComponent(currentReport.reportId)}/export?${query}`);
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'Could not export this report.');
-    }
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${currentReport.reportId}.${format}`;
-    document.body.append(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    exportStatus.textContent = `${format.toUpperCase()} export downloaded.`;
-  } catch (error) {
-    exportStatus.textContent = error.message;
-  }
-}
-
-function formatExportValue(field, value) {
-  if (value === null || value === undefined || value === '') return 'Not provided';
-  if (field === 'severity' || field === 'priority') {
-    const suggestion = value.suggested ? ' (AI suggested)' : '';
-    const reason = value.reason ? ` — ${value.reason}` : '';
-    return `${value.value || 'Not provided'}${suggestion}${reason}`;
-  }
-  if (Array.isArray(value)) return value.map((item) => (item && typeof item === 'object' ? Object.values(item).join(' | ') : item)).join('\n');
-  if (field === 'assumptionsAndMissingInformation') {
-    return [
-      ...(value.assumptions || []).map((item) => `Assumption: ${item}`),
-      ...(value.missingInfo || []).map((item) => `Missing information: ${item}`),
-    ].join('\n') || 'Not provided';
-  }
-  if (typeof value === 'object') return Object.entries(value).map(([key, item]) => `${key}: ${item}`).join('\n');
-  return String(value);
-}
-
-async function printSavedReport() {
-  if (!currentReport?.reportId) return;
-  const fields = getSelectedExportFields();
-  if (!fields.length) return;
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) {
-    exportStatus.textContent = 'Allow pop-ups to open the print view, then choose Save as PDF in your browser.';
-    return;
-  }
-  exportStatus.textContent = 'Loading the last saved report for printing...';
-  try {
-    const response = await fetch(`/api/bug-reports/${encodeURIComponent(currentReport.reportId)}`);
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error?.message || 'Could not open the saved report.');
-    const report = result.report;
-    const printDocument = printWindow.document;
-    printDocument.title = `Bug Report ${report.reportId}`;
-    const style = printDocument.createElement('style');
-    style.textContent = 'body{font:12pt/1.5 Arial,sans-serif;color:#111;background:#fff}.print-report{max-width:800px;margin:0 auto;padding:28px}.print-report h1{font-size:20pt}.print-report dl{display:grid;grid-template-columns:180px 1fr;gap:10px 16px}.print-report dt{font-weight:700;break-after:avoid}.print-report dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}';
-    const main = printDocument.createElement('main');
-    main.className = 'print-report';
-    const heading = printDocument.createElement('h1');
-    heading.textContent = `Bug Report ${report.reportId}`;
-    const fieldsList = printDocument.createElement('dl');
-    for (const field of formDefinition.filter((item) => fields.includes(item.name))) {
-      const label = printDocument.createElement('dt');
-      label.textContent = field.label;
-      const value = printDocument.createElement('dd');
-      value.textContent = formatExportValue(field.name, report[field.name]);
-      fieldsList.append(label, value);
-    }
-    main.append(heading, fieldsList);
-    printDocument.head.replaceChildren(style);
-    printDocument.body.replaceChildren(main);
-    exportStatus.textContent = 'Choose Print, then select Save as PDF in your browser.';
-    setTimeout(() => { printWindow.focus(); printWindow.print(); }, 250);
-  } catch (error) {
-    printWindow.close();
-    exportStatus.textContent = error.message;
-  }
-}
-
-function renderQaSuggestions(suggestions) {
-  currentQaSuggestions = Object.fromEntries(QA_CATEGORIES.map(([key]) => [key, [...suggestions[key]]]));
-  qaSuggestionsEditor.replaceChildren();
-  for (const [key, labelText] of QA_CATEGORIES) {
-    const label = document.createElement('label');
-    label.className = 'qa-suggestion-field';
-    const title = document.createElement('span');
-    title.textContent = labelText;
-    const badge = document.createElement('span');
-    badge.className = 'qa-suggestion-label';
-    badge.textContent = 'AI suggestion';
-    const textarea = document.createElement('textarea');
-    textarea.rows = Math.min(7, Math.max(3, currentQaSuggestions[key].length + 1));
-    textarea.value = currentQaSuggestions[key].join('\n');
-    textarea.setAttribute('aria-label', `${labelText}, AI suggestions`);
-    textarea.addEventListener('input', () => {
-      currentQaSuggestions[key] = textarea.value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
-      copyQaButton.disabled = false;
-      applyQaButton.disabled = false;
-    });
-    label.append(title, badge, textarea);
-    qaSuggestionsEditor.append(label);
-  }
-  copyQaButton.disabled = false;
-  applyQaButton.disabled = false;
-}
-
-async function generateQaSuggestions() {
-  if (!currentReport?.reportId) return;
-  generateQaButton.disabled = true;
-  qaStatus.textContent = 'Generating suggestions for the last saved report...';
-  try {
-    const response = await fetch(`/api/bug-reports/${encodeURIComponent(currentReport.reportId)}/qa-suggestions`, { method: 'POST' });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error?.message || 'Could not generate QA suggestions.');
-    renderQaSuggestions(result.suggestions);
-    qaStatus.textContent = 'Suggestions are editable and have not been saved to the report.';
-  } catch (error) {
-    qaStatus.textContent = error.message;
-  } finally {
-    generateQaButton.disabled = false;
-  }
-}
-
-async function copyQaSuggestions() {
-  if (!currentQaSuggestions) return;
-  const copyText = QA_CATEGORIES.map(([key, label]) => `${label} (AI suggestion):\n${currentQaSuggestions[key].join('\n')}`).join('\n\n');
-  try {
-    await navigator.clipboard.writeText(copyText);
-    qaStatus.textContent = 'Suggestions copied to the clipboard.';
-  } catch (_error) {
-    qaStatus.textContent = 'Clipboard access is unavailable in this browser. Select and copy the editable suggestions.';
-  }
-}
-
-function applyQaSuggestions() {
-  if (!currentReport || !currentQaSuggestions) return;
-  const items = QA_CATEGORIES.flatMap(([key, label]) => currentQaSuggestions[key].map((item) => `${label}: ${item}`));
-  currentReport.suggestedTestsRegressionCoverage = [...new Set([...(currentReport.suggestedTestsRegressionCoverage || []), ...items])];
-  const control = reportFieldGrid.querySelector('[data-report-field="suggestedTestsRegressionCoverage"]');
-  if (control) control.value = currentReport.suggestedTestsRegressionCoverage.join('\n');
-  onFieldEdited('suggestedTestsRegressionCoverage');
-  qaStatus.textContent = 'Added as AI suggestions. Choose Save changes to store them.';
-}
-
-function appendCell(row, value) {
-  const cell = document.createElement('td');
-  cell.textContent = value || '—';
-  row.append(cell);
-  return cell;
-}
-
-async function openSavedReport(id) {
-  bugListStatus.textContent = `Opening ${id}...`;
-  try {
-    const response = await fetch(`/api/bug-reports/${encodeURIComponent(id)}`);
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error?.message || 'Could not open this report.');
-    const sourceText = (result.report.confirmedFacts || []).join(' ');
-    if (!formDefinition.length) await loadFormDefinition();
-    renderReportForm({ report: result.report, clarifyingQuestions: [] }, sourceText);
-    reportStatus.textContent = 'Saved report loaded. Edit a field and choose Save changes when ready.';
-    bugListStatus.textContent = `Opened ${id}.`;
-  } catch (error) {
-    bugListStatus.textContent = error.message;
-  }
-}
-
-function requestDeleteReport(report) {
-  pendingDeleteId = report.reportId;
-  document.querySelector('#delete-dialog-title').textContent = `Delete ${report.reportId}?`;
-  document.querySelector('#delete-confirmation-message').textContent = `Delete “${report.bugTitle || 'Untitled report'}” from the local database? This cannot be undone.`;
-  if (typeof deleteConfirmation.showModal === 'function') deleteConfirmation.showModal();
-  else if (window.confirm(`Delete ${report.reportId} from the local database?`)) deleteSavedReport();
-}
-
-async function deleteSavedReport() {
-  if (!pendingDeleteId) return;
-  const id = pendingDeleteId;
-  pendingDeleteId = '';
-  confirmDeleteButton.disabled = true;
-  try {
-    const response = await fetch(`/api/bug-reports/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error?.message || 'Could not delete this report.');
-    if (currentReport?.reportId === id) {
-      currentReport = null;
-      reportEditor.hidden = true;
-    }
-    bugListStatus.textContent = `Deleted ${id}.`;
-    await loadReports();
-  } catch (error) {
-    bugListStatus.textContent = error.message;
-  } finally {
-    confirmDeleteButton.disabled = false;
-  }
-}
-
-function renderReportRows(reports) {
-  bugReportTableBody.replaceChildren();
-  const previousExportId = exportCenterReport.value;
-  exportCenterReport.replaceChildren();
-  const chooseOption = document.createElement('option');
-  chooseOption.value = '';
-  chooseOption.textContent = reports.length ? 'Choose a report from these results' : 'No saved reports in these results';
-  exportCenterReport.append(chooseOption);
-  for (const report of reports) {
-    const option = document.createElement('option');
-    option.value = report.reportId;
-    option.textContent = `${report.reportId} — ${report.bugTitle || 'Untitled report'}`;
-    exportCenterReport.append(option);
-  }
-  if (reports.some((report) => report.reportId === previousExportId)) exportCenterReport.value = previousExportId;
-  else if (reports.length === 1) exportCenterReport.value = reports[0].reportId;
-  openExportCenterButton.disabled = !exportCenterReport.value;
-  if (!reports.length) {
-    const row = document.createElement('tr');
-    const cell = document.createElement('td');
-    cell.colSpan = 6;
-    cell.className = 'empty-table-cell';
-    cell.textContent = 'No reports match these filters.';
-    row.append(cell);
-    bugReportTableBody.append(row);
-    return;
-  }
-  for (const report of reports) {
-    const row = document.createElement('tr');
-    appendCell(row, report.reportId);
-    appendCell(row, report.bugTitle);
-    appendCell(row, report.status);
-    appendCell(row, report.severity?.value);
-    appendCell(row, displayDate(report.timestamps?.updatedAt));
-    const actions = document.createElement('td');
-    actions.className = 'report-row-actions';
-    const openButton = document.createElement('button');
-    openButton.type = 'button';
-    openButton.className = 'table-action';
-    openButton.textContent = 'Open / edit';
-    openButton.setAttribute('aria-label', `Open and edit ${report.reportId}`);
-    openButton.addEventListener('click', () => openSavedReport(report.reportId));
-    const deleteButton = document.createElement('button');
-    deleteButton.type = 'button';
-    deleteButton.className = 'table-action danger-link';
-    deleteButton.textContent = 'Delete';
-    deleteButton.setAttribute('aria-label', `Delete ${report.reportId}`);
-    deleteButton.addEventListener('click', () => requestDeleteReport(report));
-    actions.append(openButton, deleteButton);
-    row.append(actions);
-    bugReportTableBody.append(row);
-  }
-}
-
-async function loadReports({ resetPage = false } = {}) {
-  if (resetPage) currentListPage = 1;
-  bugListStatus.textContent = 'Loading saved reports...';
-  const query = new URLSearchParams({
-    search: reportSearch.value.trim(),
-    status: statusFilter.value,
-    severity: severityFilter.value,
-    page: String(currentListPage),
-    pageSize: '20',
-  });
-  try {
-    const response = await fetch(`/api/bug-reports?${query}`);
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error?.message || 'Could not load saved reports.');
-    totalListPages = Math.max(1, Math.ceil(result.total / result.pageSize));
-    if (result.page > totalListPages) {
-      currentListPage = totalListPages;
-      return loadReports();
-    }
-    currentListPage = result.page;
-    renderReportRows(result.reports);
-    pageIndicator.textContent = `Page ${currentListPage} of ${totalListPages}`;
-    previousPageButton.disabled = currentListPage <= 1;
-    nextPageButton.disabled = currentListPage >= totalListPages;
-    bugListStatus.textContent = `${result.total} saved report${result.total === 1 ? '' : 's'}.`;
-    loadAnalytics();
-  } catch (error) {
-    bugReportTableBody.replaceChildren();
-    bugListStatus.textContent = error.message;
-  }
+async function loadFormDefinition() {
+  const response = await fetch('/api/bug-reports/schema');
+  if (!response.ok) throw new Error('Could not load the report form schema.');
+  const result = await response.json();
+  formDefinition = result.fields;
 }
 
 async function loadAnalytics() {
@@ -1476,12 +729,71 @@ async function loadAnalytics() {
   }
 }
 
-async function loadFormDefinition() {
-  const response = await fetch('/api/bug-reports/schema');
-  if (!response.ok) throw new Error('Could not load the report form schema.');
-  const result = await response.json();
-  formDefinition = result.fields;
-  buildExportFieldOptions();
+async function handleClarification({ initial = false } = {}) {
+  if (!description.value.trim()) {
+    statusTitle.textContent = 'Add a bug description';
+    statusMessage.textContent = 'Describe what happened before asking follow-up questions.';
+    description.focus();
+    return;
+  }
+
+  clarifyButton.disabled = true;
+  sendAnswerButton.disabled = true;
+  clarifyButton.textContent = 'Thinking...';
+  statusTitle.textContent = 'Reviewing missing details';
+  statusMessage.textContent = 'Your description is being checked for important missing information.';
+  clarificationPanel.hidden = false;
+  if (initial && !initialMessageShown) {
+    appendChatMessage('user', description.value.trim());
+    initialMessageShown = true;
+  }
+
+  try {
+    const result = await requestClarification();
+    if (result.cleanDescription) {
+      description.value = result.cleanDescription;
+      updateCharacterCount();
+    }
+    if (result.readyToGenerate) {
+      clarificationReady = true;
+      answerForm.hidden = true;
+      appendChatMessage('assistant', 'The description is ready for report generation. You can still edit it above.');
+      statusTitle.textContent = 'Ready for the next step';
+      statusMessage.textContent = 'Review the clean description. You can generate a report now.';
+      clarifyButton.textContent = 'Description reviewed';
+      return;
+    }
+
+    for (const question of result.clarifyingQuestions) {
+      conversationMessages.push({ role: 'assistant', content: question });
+      appendChatMessage('assistant', question);
+    }
+    answerForm.hidden = false;
+    answerInput.focus();
+    statusTitle.textContent = 'A few details would help';
+    statusMessage.textContent = 'Answer what you know. Leave anything unknown blank.';
+    clarifyButton.textContent = 'Ask follow-up questions';
+  } catch (error) {
+    statusTitle.textContent = 'Clarification failed';
+    statusMessage.textContent = error.message;
+    clarifyButton.textContent = 'Try clarification again';
+  } finally {
+    clarifyButton.disabled = clarificationReady;
+    sendAnswerButton.disabled = false;
+  }
+}
+
+function answeredClarifications() {
+  const pairs = [];
+  for (let index = 0; index < conversationMessages.length - 1; index += 1) {
+    const question = conversationMessages[index];
+    const answer = conversationMessages[index + 1];
+    if (question.role === 'assistant' && answer.role === 'user') {
+      pairs.push({ question: question.content, answer: answer.content });
+      index += 1;
+    }
+  }
+  return pairs;
 }
 
 async function generateReport() {
@@ -1504,8 +816,8 @@ async function generateReport() {
       language: languageSelect.value,
       clarifications: answeredClarifications(),
       researchContext: '',
-      attachmentIds: selectedAttachment ? [selectedAttachment.id] : [],
-      screenshotFindings: acceptedScreenshotFindings,
+      attachmentIds: [],
+      screenshotFindings: [],
     };
     const result = await postJson('/api/bug-reports/generate', request);
     const sourceText = [request.description, ...request.clarifications.map((item) => `${item.question} ${item.answer}`)].join(' ');
@@ -1539,7 +851,6 @@ async function saveReport() {
     if (!response.ok) throw new Error(result.error?.message || 'Could not save this report.');
     currentReport = result.report;
     saved = true;
-    qaExportPanel.hidden = false;
     copyReportButton.disabled = false;
     updateFormattedReportPreview();
     reportStatus.textContent = `${isEdit ? 'Updated' : 'Saved'} ${result.report.reportId}.`;
@@ -1548,7 +859,7 @@ async function saveReport() {
     saveButton.textContent = 'Saved';
     saveButton.disabled = true;
     reportFieldGrid.replaceChildren(...formDefinition.map(createFieldCard));
-    await loadReports();
+    loadAnalytics();
   } catch (error) {
     reportStatus.textContent = error.message;
     saveButton.disabled = false;
@@ -1583,7 +894,6 @@ async function resetWorkspace() {
   saveButton.textContent = 'Save report';
   copyReportButton.disabled = true;
   document.querySelector('#report-editor-title').textContent = 'Bug report draft';
-  if (selectedAttachment || screenshotObjectUrl || activeUploadRequest) await removeScreenshot();
   chatThread.replaceChildren();
   clarificationPanel.hidden = true;
   answerForm.hidden = true;
@@ -1595,6 +905,62 @@ async function resetWorkspace() {
   statusMessage.textContent = 'Type a description or use voice input. Nothing is saved yet.';
   description.focus();
 }
+
+async function checkGeminiStatus() {
+  apiStatus.dataset.state = 'checking';
+  apiStatusLabel.textContent = 'Checking Gemini…';
+  apiStatusRefresh.disabled = true;
+  try {
+    const response = await fetch('/api/gemini/status', { method: 'POST' });
+    if (!response.ok) throw new Error('Gemini connection check failed.');
+    const result = await response.json();
+    if (result.connected) {
+      apiStatus.dataset.state = 'connected';
+      apiStatusLabel.textContent = 'Gemini connected';
+    } else {
+      apiStatus.dataset.state = 'disconnected';
+      apiStatusLabel.textContent = result.configured === false ? 'API key not configured' : 'Gemini not connected';
+    }
+  } catch (_error) {
+    apiStatus.dataset.state = 'disconnected';
+    apiStatusLabel.textContent = 'Gemini not connected';
+  } finally {
+    apiStatusRefresh.disabled = false;
+  }
+}
+
+apiKeyForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const apiKey = apiKeyInput.value.trim();
+  if (!apiKey) {
+    apiStatus.dataset.state = 'disconnected';
+    apiStatusLabel.textContent = 'Enter an API key';
+    apiKeyInput.focus();
+    return;
+  }
+  apiStatus.dataset.state = 'checking';
+  apiStatusLabel.textContent = 'Checking API key…';
+  apiKeyCheck.disabled = true;
+  apiStatusRefresh.disabled = true;
+  try {
+    const response = await fetch('/api/gemini/key', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey }),
+    });
+    const result = await response.json();
+    apiStatus.dataset.state = result.connected ? 'connected' : 'disconnected';
+    apiStatusLabel.textContent = result.connected ? 'Gemini connected' : 'Key not connected';
+    apiKeyInput.value = '';
+  } catch (_error) {
+    apiStatus.dataset.state = 'disconnected';
+    apiStatusLabel.textContent = 'Connection check failed';
+    apiKeyInput.value = '';
+  } finally {
+    apiKeyCheck.disabled = false;
+    apiStatusRefresh.disabled = false;
+  }
+});
 
 description.addEventListener('input', () => {
   updateCharacterCount();
@@ -1665,77 +1031,17 @@ document.querySelector('#save-report-button').addEventListener('click', () => {
   if (typeof saveConfirmation.showModal === 'function') saveConfirmation.showModal();
   else if (window.confirm('Save this bug report to your local database?')) saveReport();
 });
+
 confirmSaveButton.addEventListener('click', (event) => {
   event.preventDefault();
   saveConfirmation.close();
   saveReport();
 });
+
 document.querySelector('#reset-report-button').addEventListener('click', resetWorkspace);
 copyReportButton.addEventListener('click', copyConfirmedReport);
-document.querySelector('#export-json-button').addEventListener('click', () => downloadReportExport('json'));
-document.querySelector('#export-csv-button').addEventListener('click', () => downloadReportExport('csv'));
-document.querySelector('#print-report-button').addEventListener('click', printSavedReport);
-generateQaButton.addEventListener('click', generateQaSuggestions);
-copyQaButton.addEventListener('click', copyQaSuggestions);
-applyQaButton.addEventListener('click', applyQaSuggestions);
 
-document.querySelector('#search-reports-button').addEventListener('click', () => loadReports({ resetPage: true }));
-document.querySelector('#refresh-reports-button').addEventListener('click', () => loadReports());
-exportCenterReport.addEventListener('change', () => { openExportCenterButton.disabled = !exportCenterReport.value; });
-openExportCenterButton.addEventListener('click', () => {
-  if (!exportCenterReport.value) {
-    exportCenterStatus.textContent = 'Choose a saved report from the current results.';
-    return;
-  }
-  openSavedReport(exportCenterReport.value);
-});
-reportSearch.addEventListener('keydown', (event) => {
-  if (event.key === 'Enter') {
-    event.preventDefault();
-    loadReports({ resetPage: true });
-  }
-});
-statusFilter.addEventListener('change', () => loadReports({ resetPage: true }));
-severityFilter.addEventListener('change', () => loadReports({ resetPage: true }));
-previousPageButton.addEventListener('click', () => {
-  if (currentListPage > 1) {
-    currentListPage -= 1;
-    loadReports();
-  }
-});
-nextPageButton.addEventListener('click', () => {
-  if (currentListPage < totalListPages) {
-    currentListPage += 1;
-    loadReports();
-  }
-});
-confirmDeleteButton.addEventListener('click', (event) => {
-  event.preventDefault();
-  deleteConfirmation.close();
-  deleteSavedReport();
-});
-
-researchButton.addEventListener('click', researchTechnicalQuestion);
-screenshotInput.addEventListener('change', () => {
-  const [file] = screenshotInput.files || [];
-  if (file) chooseScreenshot(file);
-  screenshotInput.value = '';
-});
-imageDropZone.addEventListener('dragover', (event) => {
-  event.preventDefault();
-  imageDropZone.classList.add('dragging');
-});
-imageDropZone.addEventListener('dragleave', () => imageDropZone.classList.remove('dragging'));
-imageDropZone.addEventListener('drop', (event) => {
-  event.preventDefault();
-  imageDropZone.classList.remove('dragging');
-  const [file] = event.dataTransfer.files || [];
-  if (file) chooseScreenshot(file);
-});
-removeScreenshotButton.addEventListener('click', removeScreenshot);
-analyzeScreenshotButton.addEventListener('click', analyzeScreenshot);
-
-loadReports();
-loadPublicConfig();
-apiStatusRefresh.addEventListener('click', checkGeminiStatus);
+configureSpeechRecognition();
+loadAnalytics();
 checkGeminiStatus();
+apiStatusRefresh.addEventListener('click', checkGeminiStatus);
