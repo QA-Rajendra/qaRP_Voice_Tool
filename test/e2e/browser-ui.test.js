@@ -201,14 +201,18 @@ test('browser UI streams mocked Gemini Live audio and keeps the transcript edita
           const message = JSON.parse(serialized);
           if (message.setup) {
             window.__liveSetup = message.setup;
-            window.setTimeout(() => this.onmessage?.({ data: JSON.stringify({ setupComplete: {} }) }), 0);
+            window.setTimeout(() => this.onmessage?.({
+              data: new Blob([JSON.stringify({ setupComplete: {} })], { type: 'application/json' }),
+            }), 0);
           } else if (message.realtimeInput?.audio) {
-            window.setTimeout(() => this.onmessage?.({ data: JSON.stringify({ serverContent: {
+            window.setTimeout(() => this.onmessage?.({ data: new Blob([JSON.stringify({ serverContent: {
               inputTranscription: { text: 'Login button does not respond.' },
               outputTranscription: { text: 'I heard that the Login button does not respond.' },
               modelTurn: { parts: [{ inlineData: { data: 'AAAAAA==', mimeType: 'audio/pcm;rate=24000' } }] },
-            } }) }), 0);
-            window.setTimeout(() => this.onmessage?.({ data: JSON.stringify({ serverContent: { turnComplete: true } }) }), 5);
+            } })], { type: 'application/json' }) }), 0);
+            window.setTimeout(() => this.onmessage?.({
+              data: new Blob([JSON.stringify({ serverContent: { turnComplete: true } })], { type: 'application/json' }),
+            }), 5);
           }
         }
         close() {

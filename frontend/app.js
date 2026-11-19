@@ -447,6 +447,25 @@ function commitLiveTranscript() {
 }
 
 /**
+ * Parses a JSON message received over WebSocket, including binary frame data.
+ * @param {string|Blob|ArrayBuffer|ArrayBufferView} data
+ * @returns {Promise<object>}
+ */
+async function parseLiveMessageData(data) {
+  if (typeof data === 'string') return JSON.parse(data);
+
+  let text;
+  if (typeof Blob !== 'undefined' && data instanceof Blob) {
+    text = await data.text();
+  } else if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
+    text = new TextDecoder().decode(data);
+  } else {
+    throw new Error('Gemini Live returned a message in an unsupported format.');
+  }
+  return JSON.parse(text);
+}
+
+/**
  * Processes a single Gemini Live WebSocket message.
  * Returns `{ setupComplete: true }` once the session handshake is done.
  * Throws on server-reported errors.
@@ -605,7 +624,7 @@ async function startLiveVoice() {
 
       socket.onmessage = async (event) => {
         try {
-          const msg = handleLiveMessage(JSON.parse(event.data));
+          const msg = handleLiveMessage(await parseLiveMessageData(event.data));
           if (!msg.setupComplete || settled) return;
           // Step 4 – Start mic capture
           await startMicrophoneCapture(sessionId);
