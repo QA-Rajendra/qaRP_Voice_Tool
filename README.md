@@ -14,6 +14,8 @@ A local, single-user workspace for turning an English or Marathi bug description
 
 For a normal start without the file watcher, use `npm.cmd start`. Do not host this local-only app publicly without first adding authentication and reviewing its security model.
 
+For local voice replies, install [Ollama](https://ollama.com/download) and run `ollama pull qwen2.5:3b`. The default local endpoint and model are configurable with `OLLAMA_BASE_URL` and `OLLAMA_MODEL` in `backend/.env`.
+
 ## Try the workflow
 
 1. Type or dictate a description in Marathi or English. Typed input always works. If the browser does not support speech recognition, the microphone control explains that and the text field stays available.
@@ -39,17 +41,17 @@ The server does not generate PDF bytes in this version. `format=pdf` returns `50
 
 Generation, clarification, research, screenshot analysis, and QA suggestions send the selected text or image to Google Gemini. Research runs only when requested. Screenshot analysis is limited to visible details. The permanent API key remains in `backend/.env`; `.gitignore` excludes that file, uploads, and local database data.
 
-The dashboard's AI Analysis History metric is stored in SQLite as timestamps only; report descriptions and AI request content are not copied into that history table.
+AI analysis history is not currently recorded. Generated drafts and AI request content are not stored; only confirmed bug reports are saved.
 
-The report model is `GEMINI_MODEL` in `backend/.env`; the Live voice model is `GEMINI_LIVE_MODEL`. The latter defaults to `gemini-3.8-live`. Model names and service availability can change; edit the environment settings when needed.
+The report model is `GEMINI_MODEL` in `backend/.env`. Ollama voice replies use `OLLAMA_MODEL`; it defaults to `qwen2.5:3b`.
 
 Normal tests use deterministic mocks. A separate optional live check is available with `npm.cmd run smoke:gemini`. It sends one minimal request using the configured key and model, and it is not part of `npm.cmd test`.
 
-## Voice decision
+## Voice assistant
 
-The main voice assistant uses Gemini Live for streaming speech, transcription, and spoken responses. It auto-detects spoken language, including Marathi and mixed Marathi-English. The language indicator is a best-effort script hint, not a guarantee. The transcript is added to the description or clarification answer and remains editable before report generation. Browser Web Speech recognition is available as a fallback, and typed input always works.
+Voice input uses the browser's SpeechRecognition API. Availability depends on the browser, and its speech service may require an internet connection; it is not guaranteed to work offline. The recognized transcript is added to the description or clarification answer and remains editable. The language selector chooses Marathi or English recognition.
 
-The server provisions a one-use Live token that expires after 15 minutes and must start a session within 60 seconds. The permanent Gemini key stays in `backend/.env`. Live audio is sent directly from the browser to Google; run the app on `localhost` for microphone access. Google currently marks the Live API and ephemeral tokens as preview features. See Google's [ephemeral token guide](https://ai.google.dev/gemini-api/docs/live-api/ephemeral-tokens) and [Live WebSocket guide](https://ai.google.dev/gemini-api/docs/live-api/get-started-websocket).
+Voice replies use the locally configured Ollama chat service and browser speech synthesis. Install Ollama, then run `ollama pull qwen2.5:3b`; the default server is `http://127.0.0.1:11434`. Set `OLLAMA_BASE_URL` or `OLLAMA_MODEL` in `backend/.env` to use another endpoint/model. Marathi speech output depends on the voices installed in the browser or operating system. Gemini remains in use for report generation, clarification, research, screenshot analysis, and QA suggestions.
 
 ## Upload limits and local data
 
@@ -64,7 +66,7 @@ SQLite data is saved under the ignored `data/` folder. This is a single-user loc
 For a visual check in your browser, also try these steps:
 
 - Generate from typed text; confirm the report editor and field badges appear.
-- Start Gemini Live voice; verify Marathi and English transcripts appear in the editor and can be corrected before generating. Check browser speech input and typed input as fallbacks.
+- Start browser voice input with Ollama running; verify the transcript is editable and the local reply is spoken. Browser speech recognition may require an internet connection.
 - Ask a clarification question, answer it, generate, edit a field, and confirm Save.
 - Upload a valid image and an invalid or oversized image; verify the error is visible.
 - Search, filter, paginate, open, edit, and delete a saved report.
@@ -73,16 +75,16 @@ For a visual check in your browser, also try these steps:
 
 ## Troubleshooting
 
-- **Missing configuration:** add `GEMINI_API_KEY` and `GEMINI_MODEL` to `backend/.env`; `GEMINI_LIVE_MODEL` is optional and defaults to `gemini-3.8-live`. Restart the server after edits.
+- **Missing configuration:** add `GEMINI_API_KEY` and `GEMINI_MODEL` to `backend/.env`. `OLLAMA_BASE_URL` and `OLLAMA_MODEL` are optional; restart the server after edits.
 - **Port already in use:** set `PORT` to an unused integer in `backend/.env`, then restart.
-- **Voice unavailable:** check the Gemini API key, Live model access, network connection, and `localhost` microphone permission. Use browser speech input or type the description if Live voice cannot connect.
+- **Voice unavailable:** allow microphone access on `localhost` and use a browser that supports SpeechRecognition. Speech recognition may need internet access. For assistant replies, start Ollama and install the configured model (for example, `ollama pull qwen2.5:3b`); typing still works without voice.
 - **Image rejected:** use PNG, JPEG, WebP, or GIF and stay within `MAX_UPLOAD_MB`.
 - **AI request failed:** check network access, model availability, API quota, and the key. Run `npm.cmd run smoke:gemini` only when you intend to make a live request.
 - **PDF endpoint returns 501:** use the report's Print / Save as PDF button and choose Save as PDF in the browser dialog.
 
 ## Phase status
 
-- Phase 1: setup and dashboard shell
+- Phase 1: setup and application shell
 - Phase 2: report schema, configuration, Gemini client, SQLite repository and middleware
 - Phase 3: browser speech input and clarification turns
 - Phase 4: structured report generation, editable review form and explicit save
@@ -90,5 +92,3 @@ For a visual check in your browser, also try these steps:
 - Phase 6: searchable, filterable report library with edit and confirmed delete
 - Phase 7: JSON/CSV exports and editable QA suggestions; server-side PDF generation recorded as a blocker with a browser print-to-PDF path
 - Phase 8: mocked HTTP and Chromium browser end-to-end workflows, security checks, Windows setup and troubleshooting documentation
-#   q a R P _ V o i c e _ T o o l  
- 

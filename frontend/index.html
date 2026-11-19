@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f4f6fb">
-    <meta name="description" content="QARP Voice Tool – AI-powered QA bug reporting with Gemini Live Voice API">
+    <meta name="description" content="QARP Voice Tool - AI-powered QA bug reporting with local voice chat">
     <title>QARP Voice Tool</title>
     <link rel="stylesheet" href="/style.css">
     <script src="/app.js" defer></script>
@@ -70,7 +70,7 @@
           <nav class="sidebar-nav">
             <a href="#voice-assistant-section">AI Voice Assistant</a>
           </nav>
-          <p class="sidebar-note">AI requests send selected content to Google Gemini. Saved reports stay in local SQLite.</p>
+          <p class="sidebar-note">Report and research requests send selected content to Google Gemini. Voice replies use local Ollama. Saved reports stay in local SQLite.</p>
         </aside>
 
         <!-- ===== MAIN CONTENT ===== -->
@@ -113,9 +113,9 @@
             <div class="input-meta">
               <span id="char-count">0 characters</span>
               <label for="language">
-                Browser fallback language
-                <select id="language" aria-label="Fallback language for browser speech input">
-                  <option value="auto">Auto detect</option>
+                Speech recognition language
+                <select id="language" aria-label="Language for browser speech input">
+                  <option value="auto">Browser default</option>
                   <option value="mr">मराठी</option>
                   <option value="en">English</option>
                 </select>
@@ -130,39 +130,29 @@
               <button class="button button-primary" id="generate-button" type="button">
                 Generate report
               </button>
-              <!-- Gemini Live mic button -->
               <button
                 class="button button-mic"
                 id="mic-button"
                 type="button"
-                aria-label="Start Gemini Live voice session"
+                aria-label="Start voice assistant"
                 aria-pressed="false"
               >
                 <span aria-hidden="true">●</span> Start voice assistant
               </button>
-              <!-- Browser SpeechRecognition fallback (shown only if Live unavailable) -->
-              <button
-                class="button button-secondary browser-voice-button"
-                id="browser-voice-button"
-                type="button"
-                hidden
-              >Use browser speech input</button>
             </div>
 
-            <!-- Voice session status -->
             <p class="voice-status" id="voice-status" role="status" aria-live="polite">
-              Gemini Live voice is ready to connect.
+              Local voice is ready. Start Ollama to enable assistant replies.
             </p>
 
-            <!-- Live voice output area -->
-            <div class="live-voice-output" aria-live="polite" aria-atomic="false">
+            <div class="voice-output" aria-live="polite" aria-atomic="false">
               <p id="voice-language-indicator" class="voice-language-indicator">
                 Language: detected while you speak
               </p>
-              <p id="live-transcript" class="live-transcript">
+              <p id="voice-transcript" class="voice-transcript">
                 Your editable voice transcript will appear here.
               </p>
-              <p id="live-response" class="live-response" hidden></p>
+              <p id="voice-response" class="voice-response" hidden></p>
             </div>
 
             <!-- Clarification chat thread (hidden until "Ask follow-up" is clicked) -->
@@ -194,7 +184,7 @@
             </section>
 
             <p class="privacy-note">
-              <span aria-hidden="true">▣</span> Nothing is saved until you choose Save.
+              <span aria-hidden="true">▣</span> Browser speech recognition may use an internet service. Voice replies use local Ollama. Nothing is saved until you choose Save.
             </p>
           </section>
 

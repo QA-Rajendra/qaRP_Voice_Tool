@@ -9,7 +9,31 @@ test('environment config accepts valid local settings without exposing key in re
   assert.equal(config.port, 4567);
   assert.equal(config.maxUploadMb, 5);
   assert.equal(config.geminiApiKey, 'test-secret');
-  assert.equal(config.geminiLiveModel, 'gemini-3.8-live');
+  assert.equal(config.ollamaBaseUrl, 'http://127.0.0.1:11434');
+  assert.equal(config.ollamaModel, 'qwen2.5:3b');
+});
+
+test('environment config accepts a custom Ollama endpoint and model', () => {
+  const config = parseConfig({
+    GEMINI_API_KEY: 'test-secret',
+    GEMINI_MODEL: 'test-model',
+    OLLAMA_BASE_URL: 'http://localhost:11435/',
+    OLLAMA_MODEL: 'small-qa-model',
+  });
+  assert.equal(config.ollamaBaseUrl, 'http://localhost:11435');
+  assert.equal(config.ollamaModel, 'small-qa-model');
+});
+
+test('environment config rejects malformed Ollama endpoints', () => {
+  assert.throws(
+    () => parseConfig({
+      GEMINI_API_KEY: 'test-secret',
+      GEMINI_MODEL: 'test-model',
+      OLLAMA_BASE_URL: 'file:///tmp/ollama',
+    }),
+    (error) => error.code === 'INVALID_CONFIGURATION'
+      && error.message.includes('OLLAMA_BASE_URL must use HTTP or HTTPS'),
+  );
 });
 
 test('environment config fails clearly when required settings are missing or invalid', () => {

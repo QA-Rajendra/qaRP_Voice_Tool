@@ -13,13 +13,13 @@ const { createResearchRouter } = require('./routes/research');
 const { createVoiceRouter } = require('./routes/voice');
 const { checkGeminiConnection, verifyAndUseGeminiApiKey } = require('./services/gemini-client');
 
-function createApp({ clarificationService, generationService, repository, researchService, screenshotAnalysisService, qaSuggestionsService, liveVoiceService } = {}) {
-  const { maxUploadMb, geminiModel, geminiLiveModel } = parseConfig();
+function createApp({ clarificationService, generationService, repository, researchService, screenshotAnalysisService, qaSuggestionsService, voiceChatService } = {}) {
+  const { maxUploadMb, geminiModel } = parseConfig();
   const app = express();
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
-        connectSrc: ["'self'", 'https://generativelanguage.googleapis.com', 'wss://generativelanguage.googleapis.com'],
+        connectSrc: ["'self'"],
       },
     },
   }));
@@ -27,7 +27,7 @@ function createApp({ clarificationService, generationService, repository, resear
   app.use('/api', createRateLimiter({ max: 120 }));
   app.use(express.static(path.join(__dirname, '..', 'frontend')));
   app.get('/api/health', (_request, response) => response.json({ status: 'ok' }));
-  app.get('/api/config', (_request, response) => response.json({ maxUploadMb, geminiModel, geminiLiveModel }));
+  app.get('/api/config', (_request, response) => response.json({ maxUploadMb, geminiModel }));
   app.post('/api/gemini/status', createRateLimiter({ max: 6, message: 'Please wait before checking Gemini again.' }), async (_request, response, next) => {
     try {
       response.json(await checkGeminiConnection());
@@ -50,7 +50,7 @@ function createApp({ clarificationService, generationService, repository, resear
   });
   app.use('/api/bug-reports', createBugReportsRouter({ generationService, repository, qaSuggestionsService }));
   app.use('/api/bug-reports', createClarificationRouter(clarificationService));
-  app.use('/api/voice', createVoiceRouter({ liveVoiceService }));
+  app.use('/api/voice', createVoiceRouter({ voiceChatService }));
   app.use('/api/research', createResearchRouter(researchService));
   app.use('/api/attachments', createAttachmentsRouter({ analysisService: screenshotAnalysisService }));
   app.use('/api', (_request, _response, next) => {

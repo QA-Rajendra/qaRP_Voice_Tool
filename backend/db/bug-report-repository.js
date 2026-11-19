@@ -60,10 +60,6 @@ function createRepository(database = getDatabase()) {
       return database.prepare('DELETE FROM bug_reports WHERE report_id = ?').run(id).changes > 0;
     },
 
-    recordAiAnalysis() {
-      database.prepare('INSERT INTO ai_analysis_events (created_at) VALUES (?)').run(new Date().toISOString());
-    },
-
     list({ search = '', status = '', severity = '', page = 1, pageSize = 20 } = {}) {
       const safePage = Math.max(1, Number.parseInt(page, 10) || 1);
       const safePageSize = Math.min(100, Math.max(1, Number.parseInt(pageSize, 10) || 20));
@@ -89,18 +85,6 @@ function createRepository(database = getDatabase()) {
       const rows = database.prepare(`SELECT * FROM bug_reports ${where} ORDER BY json_extract(timestamps, '$.updatedAt') DESC, report_id DESC LIMIT ? OFFSET ?`)
         .all(...values, safePageSize, (safePage - 1) * safePageSize);
       return { reports: rows.map(decodeRow), page: safePage, pageSize: safePageSize, total };
-    },
-
-    analytics() {
-      const totalBugs = database.prepare('SELECT COUNT(*) AS count FROM bug_reports').get().count;
-      const openBugs = database.prepare('SELECT COUNT(*) AS count FROM bug_reports WHERE status IN (?, ?, ?)')
-        .get('New', 'Open', 'In Progress').count;
-      const resolvedBugs = database.prepare('SELECT COUNT(*) AS count FROM bug_reports WHERE status IN (?, ?, ?)')
-        .get('Fixed', 'Verified', 'Closed').count;
-      const criticalBugs = database.prepare("SELECT COUNT(*) AS count FROM bug_reports WHERE json_extract(severity, '$.value') = ?")
-        .get('Critical').count;
-      const aiAnalysisHistory = database.prepare('SELECT COUNT(*) AS count FROM ai_analysis_events').get().count;
-      return { totalBugs, openBugs, criticalBugs, resolvedBugs, generatedReports: totalBugs, aiAnalysisHistory };
     },
   };
 }

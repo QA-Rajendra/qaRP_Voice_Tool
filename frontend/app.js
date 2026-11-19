@@ -4,9 +4,9 @@
  * Sections:
  *   1. STATE          – mutable runtime state
  *   2. DOM REFS       – cached element queries
- *   3. HELPERS        – pure utilities (encoding, formatting, debounce)
- *   4. VOICE ENGINE   – browser SpeechRecognition fallback
- *   5. GEMINI LIVE    – WebSocket + AudioWorklet voice session
+ *   3. HELPERS        – formatting, language detection and UI utilities
+ *   4. VOICE ENGINE   – browser speech recognition
+ *   5. LOCAL VOICE    – Ollama chat and browser speech output
  *   6. REPORT ENGINE  – generation, form rendering, save/copy
  *   7. API KEY        – Gemini status check + key submission
  *   8. EVENT LISTENERS
@@ -19,35 +19,14 @@
    1. STATE
    ============================================================ */
 
-/** Current Gemini Live session identifier (incremented on each start/stop). */
-let liveSessionCounter = 0;
-/** True while a Gemini Live session is being established. */
-let liveStarting = false;
-/** Active Gemini Live WebSocket, or null. */
-let liveSocket = null;
-/** MediaStream from getUserMedia. */
-let liveMicrophoneStream = null;
-/** AudioContext used for capture and playback. */
-let liveAudioContext = null;
-/** MediaStreamAudioSourceNode. */
-let liveAudioSource = null;
-/** AudioWorkletNode that ships 16 kHz PCM to the socket. */
-let liveAudioProcessor = null;
-/** Set of scheduled playback AudioBufferSourceNodes for cleanup. */
-let liveAssistantAudioSources = new Set();
-/** Scheduled end time of the last assistant audio chunk (seconds). */
-let livePlaybackEndTime = 0;
-/** Accumulating user transcript during the current Live turn. */
-let liveDraftTranscript = '';
-/** Accumulating assistant transcript during the current Live turn. */
-let liveAssistantTranscript = '';
-
-/** Browser SpeechRecognition instance (fallback). */
+/** Browser SpeechRecognition instance. */
 let recognition = null;
-/** True while browser SpeechRecognition is active. */
 let isRecognizing = false;
-/** True if the most recent recognition attempt failed with an error. */
 let recognitionFailed = false;
+let recognizedVoiceText = '';
+let voiceConversation = [];
+let voiceReplyPending = false;
+let isSpeakingVoiceReply = false;
 
 /** QA-assistant conversation history [{role, content}]. */
 let conversationMessages = [];
@@ -76,11 +55,10 @@ const generateButton       = document.querySelector('#generate-button');
 const statusTitle          = document.querySelector('#status-title');
 const statusMessage        = document.querySelector('#status-message');
 const micButton            = document.querySelector('#mic-button');
-const browserVoiceButton   = document.querySelector('#browser-voice-button');
 const voiceStatus          = document.querySelector('#voice-status');
 const voiceLanguageIndicator = document.querySelector('#voice-language-indicator');
-const liveTranscript       = document.querySelector('#live-transcript');
-const liveResponse         = document.querySelector('#live-response');
+const voiceTranscript      = document.querySelector('#voice-transcript');
+const voiceResponse        = document.querySelector('#voice-response');
 const clarificationPanel   = document.querySelector('#clarification-panel');
 const chatThread           = document.querySelector('#chat-thread');
 const answerForm           = document.querySelector('#answer-form');
@@ -131,20 +109,6 @@ function debounce(fn, delay) {
 function updateCharacterCount() {
   const n = description.value.length;
   charCount.textContent = `${n} ${n === 1 ? 'character' : 'characters'}`;
-}
-
-/**
- * Encodes an ArrayBuffer as a base-64 string without overflowing the stack.
- * @param {ArrayBuffer} buffer
- * @returns {string}
- */
-function encodeBase64(buffer) {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  }
-  return btoa(binary);
 }
 
 /**
@@ -203,12 +167,14 @@ function updateDetectedLanguage(text) {
 }
 
 /**
- * Returns the BCP-47 language tag for the browser SpeechRecognition fallback
+ * Returns the BCP-47 language tag for browser SpeechRecognition
  * based on the user's selection.
  * @returns {string}
  */
 function chooseVoiceLanguage() {
-  return languageSelect.value === 'mr' ? 'mr-IN' : 'en-IN';
+  if (languageSelect.value === 'mr') return 'mr-IN';
+  if (languageSelect.value === 'en') return 'en-IN';
+  return navigator.language || 'en-IN';
 }
 
 /**
@@ -241,29 +207,25 @@ async function postJson(url, body) {
 }
 
 /* ============================================================
-   4. VOICE ENGINE  –  browser SpeechRecognition fallback
+   4. VOICE ENGINE - browser speech recognition
    ============================================================ */
 
-/**
- * Sets the voice status indicator text and aria state for the browser fallback.
- * @param {string} state  CSS data-state value
- * @param {string} message  Human-readable status text
- */
-function setBrowserVoiceStatus(state, message) {
+function setVoiceStatus(state, message) {
   voiceStatus.dataset.state = state;
-  voiceStatus.textContent = `Browser speech input: ${message}`;
-  browserVoiceButton.textContent =
-    state === 'recording' ? 'Stop browser speech input' : 'Use browser speech input';
+  voiceStatus.textContent = 'Local voice: ' + message;
+  const active = ['recording', 'requesting permission'].includes(state);
+  micButton.setAttribute('aria-pressed', String(active));
+  micButton.setAttribute('aria-label', active ? 'Stop voice assistant' : 'Start voice assistant');
+  micButton.disabled = state === 'unsupported' || voiceReplyPending || isSpeakingVoiceReply;
+  micButton.innerHTML = active
+    ? 'Stop voice assistant'
+    : '<span aria-hidden="true">●</span> Start voice assistant';
 }
 
-/**
- * Initialises the browser SpeechRecognition API if available.
- * Shows the fallback button only when the API exists.
- */
 function configureSpeechRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
-    browserVoiceButton.hidden = true;
+    setVoiceStatus('unsupported', 'Speech recognition is not available in this browser. You can type instead.');
     return;
   }
 
@@ -275,403 +237,118 @@ function configureSpeechRecognition() {
   recognition.onstart = () => {
     isRecognizing = true;
     recognitionFailed = false;
-    setBrowserVoiceStatus('recording', 'Listening. Speak clearly, then pause.');
+    recognizedVoiceText = '';
+    setVoiceStatus('recording', 'Listening. Speak, then pause to send your message.');
   };
 
   recognition.onresult = (event) => {
     let finalText = '';
     let interimText = '';
-    for (let i = event.resultIndex; i < event.results.length; i++) {
+    for (let i = event.resultIndex; i < event.results.length; i += 1) {
       const text = event.results[i][0].transcript;
       if (event.results[i].isFinal) finalText += text;
       else interimText += text;
     }
-    if (finalText.trim()) appendTranscript(transcriptTarget(), finalText.trim());
+    if (finalText.trim()) {
+      recognizedVoiceText = mergeTranscript(recognizedVoiceText, finalText);
+      voiceTranscript.textContent = 'You said: ' + recognizedVoiceText;
+      updateDetectedLanguage(recognizedVoiceText);
+    }
     if (interimText.trim()) {
-      liveTranscript.textContent = `Recognizing: ${interimText.trim()}`;
+      voiceTranscript.textContent = 'Recognizing: ' + interimText.trim();
       updateDetectedLanguage(interimText.trim());
-      setBrowserVoiceStatus('processing', 'Recognizing your speech.');
     }
   };
 
   recognition.onerror = (event) => {
     isRecognizing = false;
     recognitionFailed = true;
-    const msg = event.error === 'not-allowed'
-      ? 'Microphone permission was denied. Allow microphone access or type instead.'
-      : `Voice input had a problem (${event.error}). You can type instead.`;
-    setBrowserVoiceStatus('error', msg);
+    let message;
+    if (event.error === 'not-allowed') {
+      message = 'Microphone permission was denied. Allow access or type instead.';
+    } else if (event.error === 'network') {
+      message = 'Browser speech recognition needs an internet connection.';
+    } else {
+      message = 'Speech recognition failed (' + event.error + '). You can type instead.';
+    }
+    setVoiceStatus('error', message);
   };
 
   recognition.onend = () => {
     isRecognizing = false;
-    browserVoiceButton.textContent = 'Use browser speech input';
-    if (!recognitionFailed) {
-      setBrowserVoiceStatus('idle', 'Transcript is editable. Review it before continuing.');
+    if (recognitionFailed) {
+      recognitionFailed = false;
+      return;
     }
+
+    const message = recognizedVoiceText.trim();
+    recognizedVoiceText = '';
+    if (!message) {
+      setVoiceStatus('idle', 'No speech detected. You can try again or type instead.');
+      return;
+    }
+
+    const target = transcriptTarget();
+    const context = target.value.trim();
+    appendTranscript(target, message);
+    voiceTranscript.textContent = 'Added to description: ' + message;
+    sendVoiceMessage(message, context);
   };
 }
 
 /* ============================================================
-   5. GEMINI LIVE  –  WebSocket + AudioWorklet real-time voice
+   5. LOCAL VOICE CHAT AND SPEECH OUTPUT
    ============================================================ */
 
-/**
- * Sets the Gemini Live mic button visual state and aria attributes.
- * @param {string} state  'idle'|'requesting permission'|'connecting'|'recording'|'error'|'unsupported'
- * @param {string} message  Human-readable status message
- */
-function setVoiceState(state, message) {
-  voiceStatus.dataset.state = state;
-  voiceStatus.textContent = `${state.charAt(0).toUpperCase()}${state.slice(1)}: ${message}`;
-  const active = ['recording', 'connecting', 'requesting permission'].includes(state);
-  micButton.setAttribute('aria-pressed', String(active));
-  micButton.innerHTML = active
-    ? '<span aria-hidden="true">■</span> Stop voice assistant'
-    : '<span aria-hidden="true">●</span> Start voice assistant';
-  micButton.disabled = state === 'unsupported';
-}
-
-/**
- * Sends a base-64 PCM audio chunk over the WebSocket.
- * @param {ArrayBuffer} buffer  Raw 16 kHz mono PCM buffer from AudioWorklet
- */
-function sendLiveAudioChunk(buffer) {
-  if (!liveSocket || liveSocket.readyState !== WebSocket.OPEN) return;
-  liveSocket.send(JSON.stringify({
-    realtimeInput: {
-      audio: { data: encodeBase64(buffer), mimeType: 'audio/pcm;rate=16000' },
-    },
-  }));
-}
-
-/**
- * Creates an AudioContext at 16 kHz, loads the PCM capture worklet, and starts
- * streaming microphone audio to the WebSocket.
- * @param {number} sessionId  Guards against stale async continuations.
- */
-async function startMicrophoneCapture(sessionId) {
-  liveAudioContext = new AudioContext({ sampleRate: 16000 });
-  if (liveAudioContext.sampleRate !== 16000) {
-    throw new Error('This browser could not open a 16 kHz audio stream.');
-  }
-  await liveAudioContext.audioWorklet.addModule('/live-audio-worklet.js');
-  if (sessionId !== liveSessionCounter) throw new Error('Voice session was cancelled.');
-
-  liveAudioSource = liveAudioContext.createMediaStreamSource(liveMicrophoneStream);
-  liveAudioProcessor = new AudioWorkletNode(liveAudioContext, 'qa-pcm-capture', {
-    numberOfInputs: 1,
-    numberOfOutputs: 1,
-    channelCount: 1,
-    channelCountMode: 'explicit',
-    channelInterpretation: 'speakers',
-  });
-  liveAudioProcessor.port.onmessage = (event) => sendLiveAudioChunk(event.data);
-
-  // A gain node at 0 to prevent mic echo through speakers.
-  const mutedMonitor = liveAudioContext.createGain();
-  mutedMonitor.gain.value = 0;
-  liveAudioSource.connect(liveAudioProcessor);
-  liveAudioProcessor.connect(mutedMonitor);
-  mutedMonitor.connect(liveAudioContext.destination);
-  await liveAudioContext.resume();
-}
-
-/**
- * Decodes and schedules playback of a base-64 encoded 24 kHz PCM audio chunk
- * received from Gemini Live.
- * @param {string} base64Audio
- */
-function playLiveAudio(base64Audio) {
-  if (!liveAudioContext || !base64Audio) return;
-  const binary = atob(base64Audio);
-  const sampleCount = Math.floor(binary.length / 2);
-  if (!sampleCount) return;
-
-  const audioBuffer = liveAudioContext.createBuffer(1, sampleCount, 24000);
-  const samples = audioBuffer.getChannelData(0);
-  for (let i = 0; i < sampleCount; i++) {
-    const raw = binary.charCodeAt(i * 2) | (binary.charCodeAt(i * 2 + 1) << 8);
-    samples[i] = (raw & 0x8000 ? raw - 0x10000 : raw) / 32768;
+function speakVoiceReply(text) {
+  if (!('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') {
+    setVoiceStatus('idle', 'Reply is ready to read; speech output is unavailable in this browser.');
+    return false;
   }
 
-  const source = liveAudioContext.createBufferSource();
-  source.buffer = audioBuffer;
-  source.connect(liveAudioContext.destination);
-
-  const startAt = Math.max(liveAudioContext.currentTime, livePlaybackEndTime);
-  source.start(startAt);
-  livePlaybackEndTime = startAt + audioBuffer.duration;
-  liveAssistantAudioSources.add(source);
-  source.onended = () => liveAssistantAudioSources.delete(source);
+  window.speechSynthesis.cancel();
+  const utterance = new window.SpeechSynthesisUtterance(text);
+  utterance.lang = /[\u0900-\u097f]/u.test(text) ? 'mr-IN' : 'en-IN';
+  isSpeakingVoiceReply = true;
+  setVoiceStatus('speaking', 'Speaking the local assistant reply.');
+  utterance.onend = () => {
+    isSpeakingVoiceReply = false;
+    setVoiceStatus('idle', 'Local assistant replied. Start voice input again to continue.');
+  };
+  utterance.onerror = (event) => {
+    isSpeakingVoiceReply = false;
+    setVoiceStatus('error', 'Speech output failed (' + event.error + '). The reply remains visible.');
+  };
+  window.speechSynthesis.speak(utterance);
+  return true;
 }
 
-/**
- * Stops any currently scheduled Gemini assistant audio.
- */
-function stopLivePlayback() {
-  for (const src of liveAssistantAudioSources) {
-    try { src.stop(); } catch (_) { /* already ended */ }
-  }
-  liveAssistantAudioSources.clear();
-  livePlaybackEndTime = liveAudioContext?.currentTime || 0;
-}
-
-/**
- * Releases all audio resources: AudioContext, MediaStream tracks, worklet nodes.
- * Safe to call multiple times.
- */
-function releaseLiveResources() {
-  stopLivePlayback();
-  try { liveAudioProcessor?.disconnect(); } catch (_) { /* already disconnected */ }
-  try { liveAudioSource?.disconnect(); }    catch (_) { /* already disconnected */ }
-  liveAudioProcessor = null;
-  liveAudioSource = null;
-  for (const track of liveMicrophoneStream?.getTracks?.() || []) track.stop();
-  liveMicrophoneStream = null;
-  const ctx = liveAudioContext;
-  liveAudioContext = null;
-  if (ctx && ctx.state !== 'closed') ctx.close().catch(() => {});
-}
-
-/**
- * Commits the in-flight transcript draft to the target textarea, then clears it.
- */
-function commitLiveTranscript() {
-  const text = liveDraftTranscript.trim();
-  if (!text) return;
-  appendTranscript(transcriptTarget(), text);
-  liveTranscript.textContent = `Added to description: ${text}`;
-  liveDraftTranscript = '';
-}
-
-/**
- * Parses a JSON message received over WebSocket, including binary frame data.
- * @param {string|Blob|ArrayBuffer|ArrayBufferView} data
- * @returns {Promise<object>}
- */
-async function parseLiveMessageData(data) {
-  if (typeof data === 'string') return JSON.parse(data);
-
-  let text;
-  if (typeof Blob !== 'undefined' && data instanceof Blob) {
-    text = await data.text();
-  } else if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
-    text = new TextDecoder().decode(data);
-  } else {
-    throw new Error('Gemini Live returned a message in an unsupported format.');
-  }
-  return JSON.parse(text);
-}
-
-/**
- * Processes a single Gemini Live WebSocket message.
- * Returns `{ setupComplete: true }` once the session handshake is done.
- * Throws on server-reported errors.
- * @param {object} message  Parsed JSON from WebSocket
- * @returns {{ setupComplete: boolean }}
- */
-function handleLiveMessage(message) {
-  if (message.setupComplete || message.setup_complete) return { setupComplete: true };
-
-  if (message.error) {
-    const detail = typeof message.error.message === 'string'
-      ? message.error.message.slice(0, 240)
-      : '';
-    throw new Error(detail ? `Gemini Live: ${detail}` : 'Gemini Live reported a session error.');
-  }
-
-  const sc = message.serverContent || message.server_content;
-  if (!sc) return { setupComplete: false };
-
-  // User input transcription → accumulate in draft
-  const inputTx = sc.inputTranscription || sc.input_transcription;
-  if (inputTx?.text) {
-    liveDraftTranscript = mergeTranscript(liveDraftTranscript, inputTx.text);
-    liveTranscript.textContent = `Listening: ${liveDraftTranscript}`;
-    updateDetectedLanguage(liveDraftTranscript);
-  }
-
-  // Assistant output transcription → show in response area
-  const outputTx = sc.outputTranscription || sc.output_transcription;
-  if (outputTx?.text) {
-    liveAssistantTranscript = mergeTranscript(liveAssistantTranscript, outputTx.text);
-    liveResponse.hidden = false;
-    liveResponse.textContent = `Gemini: ${liveAssistantTranscript}`;
-  }
-
-  // Model turn audio parts → schedule playback
-  const modelTurn = sc.modelTurn || sc.model_turn;
-  for (const part of modelTurn?.parts || []) {
-    const inlineData = part.inlineData || part.inline_data;
-    if (inlineData?.data) playLiveAudio(inlineData.data);
-  }
-
-  if (sc.interrupted) stopLivePlayback();
-
-  if (sc.turnComplete || sc.turn_complete) {
-    commitLiveTranscript();
-    liveAssistantTranscript = '';
-  }
-
-  return { setupComplete: false };
-}
-
-/**
- * Ends the current Gemini Live session gracefully:
- * sends the audioStreamEnd signal, closes the socket, releases audio resources.
- * @param {string} [message]  Optional status message to display.
- */
-function stopLiveVoice(message = 'Voice session ended. Your transcript remains editable.') {
-  liveSessionCounter += 1;
-  liveStarting = false;
-  commitLiveTranscript();
-
-  const socket = liveSocket;
-  liveSocket = null;
-  if (socket) {
-    try {
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }));
-        socket.close(1000, 'User ended voice session');
-      } else if (socket.readyState === WebSocket.CONNECTING) {
-        socket.close();
-      }
-    } catch (_) { /* socket may already be closed */ }
-  }
-  releaseLiveResources();
-  setVoiceState('idle', message);
-}
-
-/**
- * Starts a new Gemini Live voice session:
- * 1. Request microphone permission
- * 2. Fetch ephemeral token from /api/voice/session
- * 3. Open WebSocket and perform setup handshake
- * 4. Start AudioWorklet mic capture and stream audio
- */
-async function startLiveVoice() {
-  const sessionId = ++liveSessionCounter;
-  liveStarting = true;
-  liveDraftTranscript = '';
-  liveAssistantTranscript = '';
-  liveResponse.hidden = true;
-  liveResponse.textContent = '';
-
-  setVoiceState(
-    'requesting permission',
-    'Allow microphone access to start Gemini Live. Audio is sent to Google for live transcription and replies.',
-  );
-
+async function sendVoiceMessage(message, context) {
+  voiceReplyPending = true;
+  setVoiceStatus('processing', 'Waiting for the local Ollama assistant.');
   try {
-    if (!navigator.mediaDevices?.getUserMedia || !window.AudioWorkletNode) {
-      throw new Error('Live microphone streaming is unavailable in this browser.');
-    }
-
-    // Step 1 – Microphone permission
-    liveMicrophoneStream = await navigator.mediaDevices.getUserMedia({
-      audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    const response = await fetch('/api/voice/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, context, history: voiceConversation.slice(-8) }),
     });
-    if (sessionId !== liveSessionCounter) {
-      for (const track of liveMicrophoneStream.getTracks()) track.stop();
-      liveMicrophoneStream = null;
-      return;
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error?.message || 'The local assistant could not respond.');
+    if (typeof result.reply !== 'string' || !result.reply.trim()) {
+      throw new Error('The local assistant returned an empty reply.');
     }
 
-    // Step 2 – Ephemeral token
-    setVoiceState('connecting', 'Requesting a short-lived voice token and connecting to Gemini Live.');
-    const tokenResponse = await fetch('/api/voice/session', { method: 'POST' });
-    const credentials = await tokenResponse.json();
-    if (!tokenResponse.ok || !credentials.token || !credentials.model) {
-      throw new Error(credentials.error?.message || 'A secure Gemini Live session could not be created.');
-    }
-    if (sessionId !== liveSessionCounter) return;
-
-    // Step 3 – WebSocket connection + setup handshake
-    const endpoint = new URL(
-      'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained',
-    );
-    endpoint.searchParams.set('access_token', credentials.token);
-    const socket = new WebSocket(endpoint);
-    liveSocket = socket;
-
-    await new Promise((resolve, reject) => {
-      let settled = false;
-      const timer = window.setTimeout(() => {
-        if (!settled) { settled = true; reject(new Error('Gemini Live did not finish connecting in time.')); }
-      }, 20000);
-
-      const fail = (err) => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timer);
-        reject(err);
-      };
-
-      socket.onopen = () => {
-        socket.send(JSON.stringify({
-          setup: {
-            model: `models/${credentials.model}`,
-            responseModalities: ['AUDIO'],
-            inputAudioTranscription: {},
-            outputAudioTranscription: {},
-          },
-        }));
-      };
-
-      socket.onmessage = async (event) => {
-        try {
-          const msg = handleLiveMessage(await parseLiveMessageData(event.data));
-          if (!msg.setupComplete || settled) return;
-          // Step 4 – Start mic capture
-          await startMicrophoneCapture(sessionId);
-          if (sessionId !== liveSessionCounter) return;
-          settled = true;
-          window.clearTimeout(timer);
-          liveStarting = false;
-          setVoiceState(
-            'recording',
-            'Listening live. Pause naturally to let Gemini respond. Transcript is added to the editable description.',
-          );
-          resolve();
-        } catch (err) {
-          fail(err);
-        }
-      };
-
-      // onerror fires before onclose; actual reason arrives in onclose.
-      socket.onerror = () => {};
-
-      socket.onclose = (event) => {
-        const details = [event.code ? `code ${event.code}` : '', event.reason || ''].filter(Boolean).join(': ');
-        if (!settled) {
-          fail(new Error(
-            details
-              ? `Gemini Live closed before setup completed (${details}). Check Live model access and API key restrictions.`
-              : 'Gemini Live closed before setup completed. Check Live model access and API key restrictions.',
-          ));
-        }
-        // Handle unexpected mid-session disconnects.
-        if (sessionId === liveSessionCounter && liveSocket === socket) {
-          liveSocket = null;
-          liveStarting = false;
-          commitLiveTranscript();
-          releaseLiveResources();
-          setVoiceState('error', 'Gemini Live disconnected. Your transcript is editable; you can retry or type instead.');
-        }
-      };
-    });
-  } catch (err) {
-    if (sessionId !== liveSessionCounter) return;
-    liveStarting = false;
-    commitLiveTranscript();
-    if (liveSocket) {
-      liveSocket.onclose = null;
-      try { liveSocket.close(); } catch (_) { /* ignore */ }
-      liveSocket = null;
-    }
-    releaseLiveResources();
-    setVoiceState('error', `${err.message} You can retry or type instead.`);
+    const reply = result.reply.trim();
+    voiceConversation.push({ role: 'user', content: message }, { role: 'assistant', content: reply });
+    voiceConversation = voiceConversation.slice(-12);
+    voiceResponse.hidden = false;
+    voiceResponse.textContent = 'Assistant: ' + reply;
+    if (!speakVoiceReply(reply)) setVoiceStatus('idle', 'Local assistant replied. The response is shown above.');
+  } catch (error) {
+    setVoiceStatus('error', error.message || 'The local assistant could not respond.');
+  } finally {
+    voiceReplyPending = false;
+    micButton.disabled = voiceStatus.dataset.state === 'unsupported' || isSpeakingVoiceReply;
   }
 }
 
@@ -1268,6 +945,9 @@ async function copyConfirmedReport() {
 function resetWorkspace() {
   description.value = '';
   answerInput.value = '';
+  voiceConversation = [];
+  voiceTranscript.textContent = 'Your editable voice transcript will appear here.';
+  voiceResponse.hidden = true;
   conversationMessages = [];
   initialMessageShown = false;
   clarificationReady = false;
@@ -1330,6 +1010,8 @@ async function checkGeminiStatus() {
 // --- Description textarea ---
 description.addEventListener('input', debounce(() => {
   updateCharacterCount();
+  voiceConversation = [];
+  voiceResponse.hidden = true;
   if (initialMessageShown) {
     conversationMessages = [];
     initialMessageShown = false;
@@ -1365,30 +1047,23 @@ answerForm.addEventListener('submit', async (event) => {
   await handleClarification();
 });
 
-// --- Gemini Live mic button ---
+// --- Browser voice input ---
 micButton.addEventListener('click', () => {
-  if (liveStarting || liveSocket) {
-    stopLiveVoice();
-  } else {
-    startLiveVoice();
-  }
-});
-
-// --- Browser SpeechRecognition fallback button ---
-browserVoiceButton.addEventListener('click', () => {
-  if (!recognition) return;
+  if (!recognition || voiceReplyPending || isSpeakingVoiceReply) return;
   if (isRecognizing) {
     recognition.stop();
-    setBrowserVoiceStatus('processing', 'Finishing your transcript.');
+    setVoiceStatus('recording', 'Finishing speech recognition.');
     return;
   }
   recognitionFailed = false;
   recognition.lang = chooseVoiceLanguage();
-  setBrowserVoiceStatus('requesting permission', 'Allow microphone access in your browser.');
+  isRecognizing = true;
+  setVoiceStatus('requesting permission', 'Allow microphone access in your browser.');
   try {
     recognition.start();
-  } catch (_) {
-    setBrowserVoiceStatus('error', 'Voice input could not start. Type your description instead.');
+  } catch (error) {
+    isRecognizing = false;
+    setVoiceStatus('error', 'Voice input could not start: ' + error.message);
   }
 });
 

@@ -132,118 +132,61 @@ test('browser UI completes typed Marathi intake, edit/save, search, exports, QA,
   }
 });
 
-test('browser UI streams mocked Gemini Live audio and keeps the transcript editable', { timeout: 30_000 }, async () => {
+test('browser UI sends recognized speech to local voice chat and speaks the reply', { timeout: 30_000 }, async () => {
   const database = await createMemoryDatabase();
   const app = createApp({
     repository: createRepository(database),
-    liveVoiceService: {
-      createSession: async () => ({ token: 'auth_tokens/browser-test-token', model: 'test-live-model', expiresAt: '2030-01-01T00:15:00.000Z' }),
-    },
+    voiceChatService: { reply: async ({ message }) => 'I heard: ' + message },
   });
   const server = app.listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
-  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+  const baseUrl = 'http://127.0.0.1:' + server.address().port;
   let browser;
 
   try {
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
     await page.addInitScript(() => {
-      Object.defineProperty(navigator, 'mediaDevices', {
+      class MockSpeechRecognition {
+        start() {
+          window.__lastRecognition = this;
+          this.onstart?.();
+          window.setTimeout(() => {
+            const result = { 0: { transcript: 'Login button does not respond.' }, isFinal: true };
+            this.onresult?.({ resultIndex: 0, results: [result] });
+            this.onend?.();
+          }, 0);
+        }
+        stop() { this.onend?.(); }
+      }
+      class MockSpeechSynthesisUtterance {
+        constructor(text) { this.text = text; }
+      }
+      window.SpeechRecognition = MockSpeechRecognition;
+      window.SpeechSynthesisUtterance = MockSpeechSynthesisUtterance;
+      Object.defineProperty(window, 'speechSynthesis', {
         configurable: true,
-        value: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) },
+        value: {
+          cancel() {},
+          speak(utterance) {
+            window.__spokenReply = utterance.text;
+            window.setTimeout(() => utterance.onend?.(), 0);
+          },
+        },
       });
-
-      class MockAudioContext {
-        constructor(options) {
-          this.sampleRate = options.sampleRate;
-          this.currentTime = 0;
-          this.state = 'running';
-          this.destination = {};
-          this.audioWorklet = { addModule: async () => {} };
-        }
-        createMediaStreamSource() { return { connect() {}, disconnect() {} }; }
-        createGain() { return { gain: { value: 1 }, connect() {} }; }
-        createBuffer(_channels, length, sampleRate) {
-          const samples = new Float32Array(length);
-          return { duration: length / sampleRate, getChannelData: () => samples };
-        }
-        createBufferSource() { return { connect() {}, start() {}, stop() {} }; }
-        async resume() {}
-        async close() { this.state = 'closed'; }
-      }
-
-      class MockAudioWorkletNode {
-        constructor() { this.port = { onmessage: null }; }
-        connect() {
-          window.setTimeout(() => {
-            this.port.onmessage?.({ data: new Int16Array(1600).buffer });
-          }, 0);
-        }
-        disconnect() {}
-      }
-
-      class MockWebSocket {
-        static CONNECTING = 0;
-        static OPEN = 1;
-        static CLOSING = 2;
-        static CLOSED = 3;
-        constructor(url) {
-          this.url = String(url);
-          this.readyState = MockWebSocket.CONNECTING;
-          window.__lastLiveSocket = this;
-          window.setTimeout(() => {
-            this.readyState = MockWebSocket.OPEN;
-            this.onopen?.();
-          }, 0);
-        }
-        send(serialized) {
-          const message = JSON.parse(serialized);
-          if (message.setup) {
-            window.__liveSetup = message.setup;
-            window.setTimeout(() => this.onmessage?.({
-              data: new Blob([JSON.stringify({ setupComplete: {} })], { type: 'application/json' }),
-            }), 0);
-          } else if (message.realtimeInput?.audio) {
-            window.setTimeout(() => this.onmessage?.({ data: new Blob([JSON.stringify({ serverContent: {
-              inputTranscription: { text: 'Login button does not respond.' },
-              outputTranscription: { text: 'I heard that the Login button does not respond.' },
-              modelTurn: { parts: [{ inlineData: { data: 'AAAAAA==', mimeType: 'audio/pcm;rate=24000' } }] },
-            } })], { type: 'application/json' }) }), 0);
-            window.setTimeout(() => this.onmessage?.({
-              data: new Blob([JSON.stringify({ serverContent: { turnComplete: true } })], { type: 'application/json' }),
-            }), 5);
-          }
-        }
-        close() {
-          this.readyState = MockWebSocket.CLOSED;
-          window.setTimeout(() => this.onclose?.(), 0);
-        }
-      }
-
-      window.AudioContext = MockAudioContext;
-      window.AudioWorkletNode = MockAudioWorkletNode;
-      window.WebSocket = MockWebSocket;
     });
 
     await page.goto(baseUrl);
+    assert.equal(await page.locator('#browser-voice-button').count(), 0);
     assert.equal(await page.getByRole('link', { name: 'Dashboard' }).count(), 0);
-    assert.equal(await page.locator('.metrics-grid').count(), 0);
-    assert.equal(await page.getByRole('link', { name: 'Voice Studio' }).count(), 0);
-    assert.equal(await page.locator('#voice-clone-section').count(), 0);
+    await page.locator('#language').selectOption('mr');
     await page.locator('#mic-button').click();
-    await page.waitForFunction(() => document.querySelector('#voice-status')?.textContent.includes('Listening live'));
-    assert.deepEqual(await page.evaluate(() => window.__liveSetup.responseModalities), ['AUDIO']);
-    assert.equal(await page.evaluate(() => window.__liveSetup.generationConfig), undefined);
-    await page.waitForFunction(() => document.querySelector('#description')?.value.includes('Login button does not respond.'));
-    assert.match(await page.locator('#live-response').textContent(), /I heard that the Login button/);
-    assert.match(await page.locator('#description').inputValue(), /Login button does not respond/);
-    assert.match(await page.evaluate(() => window.__lastLiveSocket.url), /access_token=auth_tokens%2Fbrowser-test-token/);
-    assert.equal(await page.locator('#browser-voice-button').isVisible(), false);
-    assert.match(await page.request.get(`${baseUrl}/live-audio-worklet.js`).then((response) => response.text()), /registerProcessor\('qa-pcm-capture'/);
-
-    await page.locator('#mic-button').click();
-    await page.waitForFunction(() => document.querySelector('#voice-status')?.textContent.includes('Voice session ended'));
+    await page.waitForFunction(() => document.querySelector('#voice-response')?.textContent.includes('I heard: Login button'));
+    await page.waitForFunction(() => Boolean(window.__spokenReply));
+    assert.equal(await page.locator('#description').inputValue(), 'Login button does not respond.');
+    assert.match(await page.locator('#voice-response').textContent(), /I heard: Login button does not respond/);
+    assert.equal(await page.evaluate(() => window.__spokenReply), 'I heard: Login button does not respond.');
+    assert.equal(await page.evaluate(() => window.__lastRecognition.lang), 'mr-IN');
   } finally {
     if (browser) await browser.close();
     await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));

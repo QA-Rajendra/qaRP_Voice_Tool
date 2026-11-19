@@ -51,11 +51,6 @@ function createBugReportsRouter({
 
   router.get('/schema', (_request, response) => response.json({ fields: getFormDefinition(), emptyReport: createEmptyReport() }));
 
-  router.get('/analytics', async (_request, response) => {
-    const metrics = await (await getRepository()).analytics();
-    response.json(metrics);
-  });
-
   router.get('/',
     validate(ListReportsQuerySchema, 'query'),
     async (request, response) => response.json(await (await getRepository()).list(request.validatedQuery)),
@@ -109,7 +104,6 @@ function createBugReportsRouter({
     validate(GenerateRequestSchema),
     async (request, response) => {
       const result = await generationService.generateReport(request.body);
-      await (await getRepository()).recordAiAnalysis();
       response.json(result);
     },
   );

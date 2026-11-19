@@ -45,16 +45,6 @@ test('report management API lists, filters, paginates, opens, updates, and delet
   const app = createApp({ repository });
 
   await withServer(app, async (baseUrl) => {
-    const analyticsResponse = await fetch(`${baseUrl}/api/bug-reports/analytics`);
-    const analytics = await analyticsResponse.json();
-    assert.equal(analyticsResponse.status, 200);
-    assert.equal(analytics.totalBugs, 4);
-    assert.equal(analytics.openBugs, 3);
-    assert.equal(analytics.criticalBugs, 1);
-    assert.equal(analytics.resolvedBugs, 1);
-    assert.equal(analytics.generatedReports, 4);
-    assert.equal(analytics.aiAnalysisHistory, 0);
-
     const filteredResponse = await fetch(`${baseUrl}/api/bug-reports?search=Login&status=Open&severity=Major&page=1&pageSize=1`);
     const filtered = await filteredResponse.json();
     assert.equal(filteredResponse.status, 200);

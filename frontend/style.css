@@ -535,12 +535,11 @@ select:focus-visible { border-color: var(--blue); }
 .button-mic[aria-pressed="true"]:hover { background: rgba(239,68,68,.22); }
 
 .button span { flex-shrink: 0; }
-.browser-voice-button[hidden] { display: none; }
 .intake-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .intake-actions .button:disabled { opacity: .5; cursor: not-allowed; }
 
 /* ─────────────────────────────────────────
-   VOICE STATUS & LIVE OUTPUT
+   VOICE STATUS & OUTPUT
 ───────────────────────────────────────── */
 .voice-status {
   min-height: 18px;
@@ -551,19 +550,19 @@ select:focus-visible { border-color: var(--blue); }
   transition: color .2s;
 }
 .voice-status[data-state="recording"]   { color: var(--red); }
-.voice-status[data-state="connecting"]  { color: var(--blue); }
 .voice-status[data-state="processing"]  { color: var(--purple); }
+.voice-status[data-state="speaking"]    { color: var(--blue); }
 .voice-status[data-state="requesting permission"] { color: var(--blue); }
 .voice-status[data-state="error"]       { color: var(--red); }
 
-.live-voice-output {
+.voice-output {
   margin: 10px 0 0;
   padding: 12px 14px;
   background: var(--bg-overlay);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
 }
-.live-voice-output p {
+.voice-output p {
   margin: 0;
   font-size: 11px;
   line-height: 1.6;
@@ -576,13 +575,13 @@ select:focus-visible { border-color: var(--blue); }
   font-weight: 600;
   letter-spacing: .3px;
 }
-.live-transcript {
+.voice-transcript {
   margin-top: 6px !important;
   color: var(--text-secondary);
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px !important;
 }
-.live-response {
+.voice-response {
   margin-top: 10px !important;
   padding-top: 10px;
   border-top: 1px solid var(--line);

@@ -47,15 +47,7 @@ test('generate endpoint returns mocked report data and never persists the draft'
     assert.equal(response.status, 200);
     assert.equal(body.report.bugTitle, 'Save button remains disabled after valid input.');
     assert.equal(repository.list({}).total, 0);
-    const analytics = await (await fetch(`${baseUrl}/api/bug-reports/analytics`)).json();
-    assert.equal(analytics.aiAnalysisHistory, 1);
-    assert.equal(analytics.totalBugs, 0);
-
-    const restartedApp = createApp({ repository, generationService: { generateReport: async () => generatedResult() } });
-    await withServer(restartedApp, async (restartedBaseUrl) => {
-      const persistedAnalytics = await (await fetch(`${restartedBaseUrl}/api/bug-reports/analytics`)).json();
-      assert.equal(persistedAnalytics.aiAnalysisHistory, 1);
-    });
+    assert.equal(database.prepare('SELECT COUNT(*) AS count FROM ai_analysis_events').get().count, 0);
   });
   database.close();
 });

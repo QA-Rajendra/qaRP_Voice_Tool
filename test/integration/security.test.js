@@ -23,7 +23,7 @@ test('security checks keep credentials server-side, reject oversized JSON, and a
     researchService: { research: async () => ({}) },
     screenshotAnalysisService: { analyze: async () => ({}) },
     qaSuggestionsService: { generateSuggestions: async () => ({}) },
-    liveVoiceService: { createSession: async () => ({ token: 'auth_tokens/test-only', model: 'test-live-model', expiresAt: '2030-01-01T00:15:00.000Z' }) },
+    voiceChatService: { reply: async () => 'Please describe what you expected to happen.' },
   });
 
   await withServer(app, async (baseUrl) => {
@@ -35,20 +35,26 @@ test('security checks keep credentials server-side, reject oversized JSON, and a
       if (process.env.GEMINI_API_KEY) assert.ok(!content.includes(process.env.GEMINI_API_KEY), 'Permanent key appeared in a served asset.');
     }
 
-    const voice = await fetch(`${baseUrl}/api/voice/session`, { method: 'POST' });
+    const voice = await fetch(`${baseUrl}/api/voice/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'The login button does nothing.' }),
+    });
     const voiceBody = await voice.text();
     assert.equal(voice.status, 200);
     assert.equal(voice.headers.get('access-control-allow-origin'), null);
-    assert.match(voice.headers.get('content-security-policy'), /wss:\/\/generativelanguage\.googleapis\.com/);
+    assert.match(voice.headers.get('content-security-policy'), /connect-src 'self'/);
+    assert.doesNotMatch(voice.headers.get('content-security-policy'), /wss:\/\/generativelanguage\.googleapis\.com/);
     assert.doesNotMatch(voiceBody, /apiKey|GEMINI_API_KEY/i);
     if (process.env.GEMINI_API_KEY) assert.ok(!voiceBody.includes(process.env.GEMINI_API_KEY), 'Permanent key appeared in an API response.');
+    assert.match(voiceBody, /Please describe what you expected/);
 
     const clientConfig = await fetch(`${baseUrl}/api/config`);
     const publicConfig = await clientConfig.json();
-    assert.deepEqual(Object.keys(publicConfig), ['maxUploadMb', 'geminiModel', 'geminiLiveModel']);
+    assert.deepEqual(Object.keys(publicConfig), ['maxUploadMb', 'geminiModel']);
     assert.equal(typeof publicConfig.maxUploadMb, 'number');
     assert.equal(typeof publicConfig.geminiModel, 'string');
-    assert.equal(typeof publicConfig.geminiLiveModel, 'string');
+    assert.equal(Object.hasOwn(publicConfig, 'ollamaModel'), false);
 
     const oversizedPayload = JSON.stringify({ query: 'x'.repeat(1024 * 1024) });
     const oversized = await fetch(`${baseUrl}/api/research`, {

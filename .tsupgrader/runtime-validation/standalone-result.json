@@ -1,0 +1,110 @@
+{
+  "planHash": "cfcfb2e974a0c093284458a845e6f314c1b9787847900bbddc1965a04991783b",
+  "phase": "standalone",
+  "recordedAtUtc": "2026-11-19T17:25:44.2344219Z",
+  "retryCount": 0,
+  "resetBaseline": false,
+  "complete": true,
+  "result": {
+    "setupSucceeded": true,
+    "setupDurationMs": 35465,
+    "setupFailureOutput": null,
+    "assertions": [
+      {
+        "name": "tests-pass",
+        "kind": "process",
+        "verificationMethod": "test-results",
+        "passed": false,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": 1,
+        "outputSample": "\r\n\u003E ai-qa-bug-generator@1.0.0 test\r\n\u003E node --test\r\n\r\nTAP version 13\r\n# \u25C7 injected env (4) from backend\\\\.env\r\n# Subtest: browser UI completes typed Marathi intake, edit/save, search, exports, QA, and bad screenshot handling\r\nnot ok 1 - browser UI completes typed Marathi intake, edit/save, search, exports, QA, and bad screenshot handling\r\n  ---\r\n  duration_ms: 33266.4927\r\n  location: \u0027C:\\\\Users\\\\HP\\\\Desktop\\\\qaRP\\\\test\\\\e2e\\\\browser-ui.test.js:39:1\u0027\r\n  failureType: \u0027testCodeFailure\u0027\r\n  error: \u0027page.waitForFunction: Timeout 30000ms exceeded.\u0027\r\n  code: \u0027ERR_TEST_FAILURE\u0027\r\n  name: \u0027TimeoutError\u0027\r\n  stack: |-\r\n    TestContext.\u003Canonymous\u003E (C:\\Users\\HP\\Desktop\\qaRP\\test\\e2e\\browser-ui.test.js:63:16)\r\n  ...\r\n# Subtest: browser UI sends recognized speech to local voice chat and speaks the reply\r\nok 2 - browser UI sends recognized speech to local voice chat and speaks the reply\r\n  ---\r\n  duration_ms: 2007.3096\r\n  ...\r\n# \u25C7 injected env (4) from backend\\\\.env\r\n# Subtest: typed Marathi intake completes clarification, report save/edit, search, export, and screenshot rejection\r\nnot ok 3 - typed Marathi intake completes clarification, report save/edit, search, export, and screenshot rejection\r\n  ---\r\n  duration_ms: 491.7047\r\n  location: \u0027C:\\\\Users\\\\HP\\\\Desktop\\\\qaRP\\\\test\\\\e2e\\\\user-workflow.test.js:41:1\u0027\r\n  failureType: \u0027testCodeFailure\u0027\r\n  error: |-\r\n    The input did not match the regular expression /Bug report library/. Input:\r\n    \r\n    \u0027\u003C!doctype html\u003E\\n\u0027 \u002B\r\n      \u0027\u003Chtml lang=\u0022en\u0022\u003E\\n\u0027 \u002B\r\n      \u0027  \u003Chead\u003E\\n\u0027 \u002B\r\n      \u0027    \u003Cmeta charset=\u0022utf-8\u0022\u003E\\n\u0027 \u002B\r\n      \u0027    \u003Cmeta name=\u0022viewport\u0022 content=\u0022width=device-width, initial-scale=1\u0022\u003E\\n\u0027 \u002B\r\n      \u0027    \u003Cmeta name=\u0022theme-color\u0022 content=\u0022#f4f6fb\u0022\u003E\\n\u0027 \u002B\r\n      \u0027    \u003Cmeta name=\u0022description\u0022 content=\u0022QARP Voice Tool - AI-powered QA bug reporting with local voice chat\u0022\u003E\\n\u0027 \u002B\r\n      \u0027    \u003Ctitle\u003EQARP Voice Tool\u003C/title\u003E\\n\u0027 \u002B\r\n      \u0027    \u003Clink rel=\u0022stylesheet\u0022 href=\u0022/style.css\u0022\u003E\\n\u0027 \u002B\r\n      \u0027    \u003Cscript src=\u0022/app.js\u0022 defer\u003E\u003C/script\u003E\\n\u0027 \u002B\r\n      \u0027    \u003Cstyle\u003E\\n\u0027 \u002B\r\n      \u0027      /* Mic button pulsing animation when recording */\\n\u0027 \u002B\r\n      \u0027      @keyframes mic-pulse {\\n\u0027 \u002B\r\n      \u0027        0%   { box-shadow: 0 0 0 0 rgba(180, 69, 85, 0.55); }\\n\u0027 \u002B\r\n      \u0027        70%  { box-shadow: 0 0 0 12px rgba(180, 69, 85, 0); }\\n\u0027 \u002B\r\n      \u0027        100% { box-shadow: 0 0 0 0 rgba(180, 69, 85, 0); }\\n\u0027 \u002B\r\n      \u0027      }\\n\u0027 \u002B\r\n      \u0027      .button-mic[aria-pressed=\u0022true\u0022] {\\n\u0027 \u002B\r\n      \u0027        background: #fdebed;\\n\u0027 \u002B\r\n      \u0027        color: #b44555;\\n\u0027 \u002B\r\n      \u0027        animation: mic-pulse 1.4s ease-out infinite;\\n\u0027 \u002B\r\n      \u0027      }\\n\u0027 \u002B\r\n      \u0027      .button-mic[aria-pressed=\u0022true\u0022]:hover { background: #fbd9de; }\\n\u0027 \u002B\r\n      \u0027    \u003C/style\u003E\\n\u0027 \u002B\r\n      \u0027  \u003C/head\u003E\\n\u0027 \u002B\r\n      \u0027  \u003Cbody\u003E\\n\u0027 \u002B\r\n      \u0027    \u003Cdiv class=\u0022app-shell\u0022\u003E\\n\u0027 \u002B\r\n      \u0027\\n\u0027 \u002B\r\n      \u0027      \u003C!-- ===== TOPBAR ===== --\u003E\\n\u0027 \u002B\r\n      \u0027      \u003Cheader class=\u0022topbar\u0022\u003E\\n\u0027 \u002B\r\n      \u0027        \u003Ca class=\u0022brand\u0022 href=\u0022/\u0022 aria-label=\u0022QARP Voice Tool home\u0022\u003E\\n\u0027 \u002B\r\n      \u0027          \u003Cspan class=\u0022brand-mark\u0022 aria-hidden=\u0022true\u0022\u003EQ\u003C/span\u003E\\n\u0027 \u002B\r\n      \u0027          \u003Cspan\u003E\u003Cstrong\u003EQARP Voice Tool\u003C/strong\u003E\u003C/span\u003E\\n\u0027 \u002B\r\n      \u0027        \u003C/a\u003E\\n\u0027 \u002B\r\n      \u0027        \u003Cdiv class=\u0022topbar-status-group\u0022\u003E\\n\u0027 \u002B\r\n      \u0027          \u003Cdiv class=\u0022local-badge\u0022\u003E\u003Cspan aria-hidden=\u0022true\u0022\u003E\u003C/span\u003E Local workspace\u003C/div\u003E\\n\u0027 \u002B\r\n      \u0027          \u003C!-- API key entry form --\u003E\\n\u0027 \u002B\r\n      \u0027          \u003Cform class=\u0022api-key-entry\u0022 id=\u0022api-key-form\u0022 autocomplete=\u0022off\u0022\u003E\\n\u0027 \u002B\r\n      \u0027            \u003Clabel class=\u0022visually-hidden\u0022 for=\u0022api-key-input\u0022\u003EGemini API key\u003C/label\u003E\\n\u0027 \u002B\r\n      \u0027            \u003Cinput\\n\u0027 \u002B\r\n      \u0027              id=\u0022api-key-input\u0022\\n\u0027 \u002B\r\n      \u0027              name=\u0022apiKey\u0022\\n\u0027 \u002B\r\n      \u0027              type=\u0022password\u0022\\n\u0027 \u002B\r\n      \u0027              placeholder=\u0022Paste Gemini API key\u0022\\n\u0027 \u002B\r\n      \u0027              autocomplete=\u0022new-password\u0022\\n\u0027 \u002B\r\n      \u0027              spellcheck=\u0022false\u0022\\n\u0027 \u002B\r\n      \u0027              maxlength=\u0022500\u0022\\n\u0027 \u002B\r\n      \u0027            \u003E\\n\u0027 \u002B\r\n      \u0027            \u003Cbutton class=\u0022api-key-button\u0022 id=\u0022api-key-check\u0022 type=\u0022submit\u0022\u003ECheck \u0026amp; use\u003C/button\u003E\\n\u0027 \u002B\r\n      \u0027          \u003C/form\u003E\\n\u0027 \u002B\r\n      \u0027      \n\u2026[truncated]",
+        "durationMs": 40966,
+        "testResults": {
+          "testFramework": "unknown",
+          "runnerDetectedFrom": "none",
+          "testsTotal": 0,
+          "testsPassed": 0,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "parseFailed": true
+        }
+      },
+      {
+        "name": "server-health-200",
+        "kind": "http-probe",
+        "verificationMethod": "http-status",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": null,
+        "outputSample": "HTTP 200\n{\u0022status\u0022:\u0022ok\u0022}\n--- server output ---\n\r\n\u003E ai-qa-bug-generator@1.0.0 start\r\n\u003E node backend/server.js\r\n\r\n\u25C7 injected env (3) from backend\\.env\r\nQARP Voice Tool is available at http://localhost:43157\r\n",
+        "durationMs": 2814
+      },
+      {
+        "name": "report-schema-200",
+        "kind": "http-probe",
+        "verificationMethod": "http-status",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": null,
+        "outputSample": "HTTP 200\n{\u0022fields\u0022:[{\u0022name\u0022:\u0022reportId\u0022,\u0022label\u0022:\u0022Bug ID\u0022,\u0022editor\u0022:\u0022text\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022bugTitle\u0022,\u0022label\u0022:\u0022Bug Title\u0022,\u0022editor\u0022:\u0022text\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022summary\u0022,\u0022label\u0022:\u0022Summary\u0022,\u0022editor\u0022:\u0022textarea\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022bugType\u0022,\u0022label\u0022:\u0022Bug Type\u0022,\u0022editor\u0022:\u0022select\u0022,\u0022options\u0022:[\u0022UI\u0022,\u0022Functional\u0022,\u0022Validation\u0022,\u0022API\u0022,\u0022Database\u0022,\u0022Security\u0022,\u0022Performance\u0022,\u0022Compatibility\u0022,\u0022Responsive Design\u0022,\u0022Data\u0022,\u0022Other\u0022]},{\u0022name\u0022:\u0022status\u0022,\u0022label\u0022:\u0022Status\u0022,\u0022editor\u0022:\u0022select\u0022,\u0022options\u0022:[\u0022New\u0022,\u0022Open\u0022,\u0022In Progress\u0022,\u0022Fixed\u0022,\u0022Verified\u0022,\u0022Closed\u0022,\u0022Rejected\u0022]},{\u0022name\u0022:\u0022productProject\u0022,\u0022label\u0022:\u0022Project Name\u0022,\u0022editor\u0022:\u0022text\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022moduleComponent\u0022,\u0022label\u0022:\u0022Module\u0022,\u0022editor\u0022:\u0022text\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022subModule\u0022,\u0022label\u0022:\u0022Sub Module\u0022,\u0022editor\u0022:\u0022text\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022environment\u0022,\u0022label\u0022:\u0022Environment\u0022,\u0022editor\u0022:\u0022textarea\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022applicationBuildVersion\u0022,\u0022label\u0022:\u0022Build Version\u0022,\u0022editor\u0022:\u0022text\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022operatingSystemPlatform\u0022,\u0022label\u0022:\u0022Operating System Platform\u0022,\u0022editor\u0022:\u0022text\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022browserDevice\u0022,\u0022label\u0022:\u0022Browser Device\u0022,\u0022editor\u0022:\u0022text\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022preconditions\u0022,\u0022label\u0022:\u0022Preconditions\u0022,\u0022editor\u0022:\u0022list\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022testData\u0022,\u0022label\u0022:\u0022Test Data\u0022,\u0022editor\u0022:\u0022list\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022reproductionSteps\u0022,\u0022label\u0022:\u0022Steps to Reproduce\u0022,\u0022editor\u0022:\u0022list\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022expectedResult\u0022,\u0022label\u0022:\u0022Expected Result\u0022,\u0022editor\u0022:\u0022textarea\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022actualResult\u0022,\u0022label\u0022:\u0022Actual Result\u0022,\u0022editor\u0022:\u0022textarea\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022severity\u0022,\u0022label\u0022:\u0022Severity\u0022,\u0022editor\u0022:\u0022suggested-choice\u0022,\u0022options\u0022:[\u0022Critical\u0022,\u0022Major\u0022,\u0022Minor\u0022,\u0022Trivial\u0022]},{\u0022name\u0022:\u0022priority\u0022,\u0022label\u0022:\u0022Priority\u0022,\u0022editor\u0022:\u0022suggested-choice\u0022,\u0022options\u0022:[\u0022High\u0022,\u0022Medium\u0022,\u0022Low\u0022]},{\u0022name\u0022:\u0022reproductionFrequency\u0022,\u0022label\u0022:\u0022Reproduction Frequency\u0022,\u0022editor\u0022:\u0022text\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022firstObservedDateTime\u0022,\u0022label\u0022:\u0022First Observed Date / Time\u0022,\u0022editor\u0022:\u0022text\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022reporter\u0022,\u0022label\u0022:\u0022Reported By\u0022,\u0022editor\u0022:\u0022text\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022assignee\u0022,\u0022label\u0022:\u0022Assigned To\u0022,\u0022editor\u0022:\u0022text\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022reportedDate\u0022,\u0022label\u0022:\u0022Reported Date\u0022,\u0022editor\u0022:\u0022text\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022labels\u0022,\u0022label\u0022:\u0022Labels\u0022,\u0022editor\u0022:\u0022list\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022attachmentReferences\u0022,\u0022label\u0022:\u0022Attachment: Screenshot / Video / Logs\u0022,\u0022editor\u0022:\u0022attachments\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022screenshotFindings\u0022,\u0022label\u0022:\u0022Screenshot Findings\u0022,\u0022editor\u0022:\u0022list\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022logsEvidence\u0022,\u0022label\u0022:\u0022Logs Evidence\u0022,\u0022editor\u0022:\u0022textarea\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022suspectedCause\u0022,\u0022label\u0022:\u0022Suspected Cause\u0022,\u0022editor\u0022:\u0022textarea\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022remarks\u0022,\u0022label\u0022:\u0022Remarks\u0022,\u0022editor\u0022:\u0022textarea\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022confirmedFacts\u0022,\u0022label\u0022:\u0022Confirmed Facts\u0022,\u0022editor\u0022:\u0022list\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022assumptionsAndMissingInformation\u0022,\u0022label\u0022:\u0022Assumptions And Missing Information\u0022,\u0022editor\u0022:\u0022assumptions\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022suggestedTestsRegressionCoverage\u0022,\u0022label\u0022:\u0022Suggested Tests Regression Coverage\u0022,\u0022editor\u0022:\u0022list\u0022,\u0022options\u0022:[]},{\u0022name\u0022:\u0022timestamps\u0022,\u0022label\u0022:\u0022Timestamps\u0022,\u0022editor\u0022:\u0022timestamps\u0022,\u0022options\u0022:[]}],\u0022emptyReport\u0022:{\u0022reportId\u0022:\u0022\u0022,\u0022bugTitle\u0022:\u0022\u0022,\u0022summary\u0022:\u0022\u0022,\u0022bugType\u0022:\u0022Other\u0022,\u0022status\u0022:\u0022New\u0022,\u0022productProject\u0022:\u0022\u0022,\u0022moduleComponent\u0022:\u0022\u0022,\u0022environment\u0022:\u0022\u0022,\u0022applicationBuildVersion\u0022:\u0022\u0022,\u0022subModule\u0022:\u0022\u0022,\u0022testData\u0022:[],\u0022reportedDate\u0022:\u0022\u0022,\u0022remarks\u0022:\u0022\u0022,\u0022operatingSystemPlatform\u0022:\u0022\u0022,\u0022browserDevice\u0022:\u0022\u0022,\u0022preconditions\u0022:[],\u0022reproductionSteps\u0022:[],\u0022expectedResult\u0022:\u0022\u0022,\u0022actualResult\u0022:\u0022\u0022,\u0022severity\u0022:{\u0022value\u0022:null,\u0022suggested\u0022:true,\u0022reason\u0022:\u0022\u0022},\u0022priority\u0022:{\u0022value\u0022:null,\u0022suggested\u0022:true,\u0022reason\u0022:\u0022\u0022},\u0022reproductionFrequency\u0022:\u0022\u0022,\u0022firstObservedDateTime\u0022:\u0022\u0022,\u0022reporter\u0022:\u0022\u0022,\u0022assignee\u0022:\u0022\u0022,\u0022labels\u0022:[],\u0022attachmentReferences\u0022:[],\u0022screenshotFindings\u0022:[],\u0022logsEvidence\u0022:\u0022\u0022,\u0022suspectedCause\u0022:\u0022\u0022,\u0022confirmedFacts\u0022:[],\u0022assumptionsAndMissingInformation\u0022:{\u0022assumptions\u0022:[],\u0022missingInfo\u0022:[]},\u0022suggestedTestsRegressionCoverage\u0022:[],\u0022timestamps\u0022:{\u0022createdAt\u0022:\u0022\u0022,\u0022updatedAt\u0022:\u0022\u0022}}}",
+        "durationMs": 24
+      }
+    ],
+    "executions": [
+      {
+        "source": "setup[0]",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
+        "args": [
+          "ci"
+        ],
+        "cwd": "C:\\Users\\HP\\Desktop\\qaRP",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      },
+      {
+        "source": "tests-pass",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
+        "args": [
+          "test"
+        ],
+        "cwd": "C:\\Users\\HP\\Desktop\\qaRP",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      },
+      {
+        "source": "server-health-200",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
+        "args": [
+          "start"
+        ],
+        "cwd": "C:\\Users\\HP\\Desktop\\qaRP",
+        "env": {
+          "PORT": "43157"
+        },
+        "prependPath": [],
+        "platform": "win32"
+      },
+      {
+        "source": "report-schema-200",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
+        "args": [
+          "start"
+        ],
+        "cwd": "C:\\Users\\HP\\Desktop\\qaRP",
+        "env": {
+          "PORT": "43157"
+        },
+        "prependPath": [],
+        "platform": "win32"
+      }
+    ]
+  }
+}

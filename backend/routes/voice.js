@@ -1,12 +1,30 @@
 const express = require('express');
-const { createLiveVoiceService } = require('../services/live-voice-service');
+const { z } = require('zod');
 const { createRateLimiter } = require('../middleware/rate-limit');
+const { validate } = require('../middleware/validate');
+const { createOllamaVoiceService } = require('../services/ollama-voice-service');
 
-function createVoiceRouter({ liveVoiceService = createLiveVoiceService() } = {}) {
+const VoiceChatRequestSchema = z.object({
+  message: z.string().trim().min(1).max(2000),
+  context: z.string().trim().max(8000).default(''),
+  history: z.array(z.object({
+    role: z.enum(['user', 'assistant']),
+    content: z.string().trim().min(1).max(2000),
+  }).strict()).max(12).default([]),
+}).strict();
+
+function createVoiceRouter({ voiceChatService = createOllamaVoiceService() } = {}) {
   const router = express.Router();
-  router.post('/session', createRateLimiter({ max: 6, message: 'Too many voice sessions requested. Wait a minute and try again.' }));
-  router.post('/session', async (_request, response) => response.json(await liveVoiceService.createSession()));
+  router.post(
+    '/chat',
+    createRateLimiter({ windowMs: 60_000, max: 30, message: 'Too many voice messages. Wait a minute and try again.' }),
+    validate(VoiceChatRequestSchema),
+    async (request, response) => {
+      const reply = await voiceChatService.reply(request.body);
+      response.json({ reply });
+    },
+  );
   return router;
 }
 
-module.exports = { createVoiceRouter };
+module.exports = { createVoiceRouter, VoiceChatRequestSchema };

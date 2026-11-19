@@ -1,0 +1,49 @@
+{
+  "generatedAt": "2026-11-19T17:22:00Z",
+  "generatedOnPlatform": "win32",
+  "projectType": "server",
+  "setup": [
+    {
+      "command": "npm.cmd",
+      "args": ["ci"],
+      "timeoutSeconds": 600
+    }
+  ],
+  "assertions": [
+    {
+      "name": "tests-pass",
+      "kind": "process",
+      "command": "npm.cmd",
+      "args": ["test"],
+      "verificationMethod": "test-results",
+      "expected": "0",
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "server-health-200",
+      "kind": "http-probe",
+      "startCommand": "npm.cmd",
+      "startArgs": ["start"],
+      "env": {
+        "PORT": "43157"
+      },
+      "url": "http://127.0.0.1:43157/api/health",
+      "verificationMethod": "http-status",
+      "expected": "200",
+      "timeoutSeconds": 120
+    },
+    {
+      "name": "report-schema-200",
+      "kind": "http-probe",
+      "startCommand": "npm.cmd",
+      "startArgs": ["start"],
+      "env": {
+        "PORT": "43157"
+      },
+      "url": "http://127.0.0.1:43157/api/bug-reports/schema",
+      "verificationMethod": "http-status",
+      "expected": "200",
+      "timeoutSeconds": 120
+    }
+  ]
+}

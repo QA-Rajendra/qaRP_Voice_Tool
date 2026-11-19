@@ -37,23 +37,44 @@ test('clarification endpoint validates input and returns mocked chat response', 
   });
 });
 
-test('Live session endpoint returns a one-use temporary token without exposing the permanent API key', async () => {
-  let tokenRequest;
-  const liveVoiceService = {
-    createSession: async () => {
-      tokenRequest = { provisioned: true };
-      return { token: 'auth_tokens/temporary-test-token', model: 'test-live-model', expiresAt: '2030-01-01T00:15:00.000Z' };
+test('voice chat validates requests and returns an injected local assistant reply', async () => {
+  let voiceRequest;
+  const app = createApp({
+    voiceChatService: {
+      reply: async (request) => {
+        voiceRequest = request;
+        return 'Please include the browser and device.';
+      },
     },
-  };
-  const app = createApp({ liveVoiceService });
+  });
   await withServer(app, async (baseUrl) => {
-    const response = await fetch(`${baseUrl}/api/voice/session`, { method: 'POST' });
+    const response = await fetch(`${baseUrl}/api/voice/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'The login button does nothing.',
+        context: 'Login fails after valid credentials.',
+        history: [{ role: 'assistant', content: 'What happened?' }],
+      }),
+    });
     const body = await response.json();
     assert.equal(response.status, 200);
-    assert.equal(body.token, 'auth_tokens/temporary-test-token');
-    assert.equal(body.model, 'test-live-model');
-    assert.equal(tokenRequest.provisioned, true);
-    assert.equal(Object.hasOwn(body, 'apiKey'), false);
-    assert.equal(Object.hasOwn(body, 'geminiApiKey'), false);
+    assert.equal(body.reply, 'Please include the browser and device.');
+    assert.deepEqual(voiceRequest, {
+      message: 'The login button does nothing.',
+      context: 'Login fails after valid credentials.',
+      history: [{ role: 'assistant', content: 'What happened?' }],
+    });
+
+    const invalid = await fetch(`${baseUrl}/api/voice/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: '   ', unexpected: true }),
+    });
+    assert.equal(invalid.status, 400);
+    assert.equal((await invalid.json()).error.code, 'VALIDATION_ERROR');
+
+    const removedLiveEndpoint = await fetch(`${baseUrl}/api/voice/session`, { method: 'POST' });
+    assert.equal(removedLiveEndpoint.status, 404);
   });
 });
