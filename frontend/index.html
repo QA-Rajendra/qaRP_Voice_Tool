@@ -79,7 +79,7 @@
               <select id="language"><option value="auto">Auto detect</option><option value="mr">मराठी</option><option value="en">English</option></select>
             </label></div>
             <div class="intake-actions">
-              <button class="button button-secondary" id="clarify-button" type="button">Ask follow-up questions</button>
+              <button class="button button-secondary" id="clarify-button" type="button" hidden>Ask follow-up questions</button>
               <button class="button button-primary" id="generate-button" type="button">Generate report</button>
               <button class="button button-mic" id="mic-button" type="button" aria-label="Start Gemini Live voice"><span aria-hidden="true">●</span> Start voice assistant</button>
               <button class="button button-secondary browser-voice-button" id="browser-voice-button" type="button" hidden>Use browser speech input</button>
@@ -253,7 +253,7 @@
 
         <section class="panel workspace-info-panel" id="settings-section" aria-labelledby="settings-title">
           <div><p class="eyebrow">APPLICATION SETTINGS</p><h2 id="settings-title">Local configuration</h2><p class="subtitle">The permanent Gemini key stays in backend/.env and is never returned to this page.</p></div>
-          <dl class="settings-summary"><div><dt>Gemini model</dt><dd id="settings-model">Loading…</dd></div><div><dt>Live voice model</dt><dd id="settings-live-model">Loading</dd></div><div><dt>Screenshot size limit</dt><dd id="settings-upload-limit">Loading…</dd></div><div><dt>Storage</dt><dd>Local SQLite</dd></div><div><dt>Voice</dt><dd>Gemini Live with browser speech fallback</dd></div></dl>
+          <dl class="settings-summary"><div><dt>Gemini model</dt><dd id="settings-model">Loading…</dd></div><div><dt>Live voice model</dt><dd id="settings-live-model">Loading</dd></div><div><dt>Screenshot size limit</dt><dd id="settings-upload-limit">Loading…</dd></div><div><dt>Storage</dt><dd>Local SQLite</dd></div><div><dt>Voice</dt><dd>Gemini Live voice or typed input</dd></div></dl>
         </section>
 
         <dialog class="confirm-dialog" id="save-confirmation" aria-labelledby="save-dialog-title">

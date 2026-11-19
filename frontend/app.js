@@ -367,7 +367,6 @@ async function startLiveVoice() {
   liveAssistantTranscript = '';
   liveResponse.hidden = true;
   liveResponse.textContent = '';
-  browserVoiceButton.hidden = true;
   setVoiceState('requesting permission', 'Allow microphone access to start Gemini Live. Audio is sent to Google for live transcription and replies.');
 
   try {
@@ -442,8 +441,7 @@ async function startLiveVoice() {
           liveStarting = false;
           commitLiveTranscript();
           releaseLiveResources();
-          setVoiceState('error', 'Gemini Live disconnected. Your transcript is editable; you can retry or use browser speech input.');
-          browserVoiceButton.hidden = !browserVoiceAvailable;
+          setVoiceState('error', 'Gemini Live disconnected. Your transcript is editable; you can retry or type instead.');
         }
       };
     });
@@ -457,8 +455,7 @@ async function startLiveVoice() {
       liveSocket = null;
     }
     releaseLiveResources();
-    setVoiceState('error', `${error.message} You can retry, use browser speech input, or type instead.`);
-    browserVoiceButton.hidden = !browserVoiceAvailable;
+    setVoiceState('error', `${error.message} You can retry or type instead.`);
   }
 }
 
@@ -1738,7 +1735,6 @@ imageDropZone.addEventListener('drop', (event) => {
 removeScreenshotButton.addEventListener('click', removeScreenshot);
 analyzeScreenshotButton.addEventListener('click', analyzeScreenshot);
 
-configureSpeechRecognition();
 loadReports();
 loadPublicConfig();
 apiStatusRefresh.addEventListener('click', checkGeminiStatus);
