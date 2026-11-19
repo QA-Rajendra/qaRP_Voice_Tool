@@ -7,6 +7,22 @@ const LIVE_SYSTEM_INSTRUCTION = [
   'Do not invent missing details, claim a root cause, or dictate a completed bug report. The user will review the transcript and generate the report separately.',
 ].join(' ');
 
+function getProviderErrorReason(cause) {
+  const providerError = cause?.error;
+  if (providerError?.details?.some((detail) => detail?.reason === 'API_KEY_INVALID')) {
+    return 'API_KEY_INVALID';
+  }
+
+  if (typeof cause?.message !== 'string') return undefined;
+  try {
+    const parsed = JSON.parse(cause.message);
+    return parsed?.error?.details?.find((detail) => typeof detail?.reason === 'string')?.reason;
+  } catch (error) {
+    if (error instanceof SyntaxError) return undefined;
+    throw error;
+  }
+}
+
 function createLiveVoiceService({
   configProvider = parseConfig,
   now = () => Date.now(),
@@ -46,7 +62,10 @@ function createLiveVoiceService({
           },
         });
       } catch (cause) {
-        const error = new Error('Gemini could not create a Live voice session. Check the server key, model access, and network connection.');
+        const message = getProviderErrorReason(cause) === 'API_KEY_INVALID'
+          ? 'The Gemini API key is invalid. Add a valid key and try voice again.'
+          : 'Gemini could not create a Live voice session. Check the server key, model access, and network connection.';
+        const error = new Error(message);
         error.status = 502;
         error.code = 'LIVE_TOKEN_UNAVAILABLE';
         error.cause = cause;

@@ -200,6 +200,7 @@ test('browser UI streams mocked Gemini Live audio and keeps the transcript edita
         send(serialized) {
           const message = JSON.parse(serialized);
           if (message.setup) {
+            window.__liveSetup = message.setup;
             window.setTimeout(() => this.onmessage?.({ data: JSON.stringify({ setupComplete: {} }) }), 0);
           } else if (message.realtimeInput?.audio) {
             window.setTimeout(() => this.onmessage?.({ data: JSON.stringify({ serverContent: {
@@ -222,8 +223,12 @@ test('browser UI streams mocked Gemini Live audio and keeps the transcript edita
     });
 
     await page.goto(baseUrl);
+    assert.equal(await page.getByRole('link', { name: 'Dashboard' }).count(), 0);
+    assert.equal(await page.locator('.metrics-grid').count(), 0);
     await page.locator('#mic-button').click();
     await page.waitForFunction(() => document.querySelector('#voice-status')?.textContent.includes('Listening live'));
+    assert.deepEqual(await page.evaluate(() => window.__liveSetup.responseModalities), ['AUDIO']);
+    assert.equal(await page.evaluate(() => window.__liveSetup.generationConfig), undefined);
     await page.waitForFunction(() => document.querySelector('#description')?.value.includes('Login button does not respond.'));
     assert.match(await page.locator('#live-response').textContent(), /I heard that the Login button/);
     assert.match(await page.locator('#description').inputValue(), /Login button does not respond/);

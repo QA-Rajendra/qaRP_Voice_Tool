@@ -293,7 +293,7 @@ a:focus-visible {
 /* ─────────────────────────────────────────
    MAIN / DASHBOARD
 ───────────────────────────────────────── */
-.dashboard {
+.app-main {
   width: 100%;
   min-width: 0;
   padding: 32px clamp(16px, 3vw, 40px) 40px;
@@ -363,63 +363,6 @@ h1 {
   background: var(--line);
 }
 .muted-step { color: var(--text-muted); }
-
-/* ─────────────────────────────────────────
-   METRICS GRID
-───────────────────────────────────────── */
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin: 0 0 24px;
-  scroll-margin-top: 20px;
-}
-
-.metric-card {
-  display: grid;
-  align-content: center;
-  gap: 4px;
-  padding: 16px 18px;
-  min-height: 90px;
-  background: var(--bg-raised);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  transition: border-color .2s, transform .15s;
-  position: relative;
-  overflow: hidden;
-}
-.metric-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, var(--blue-dim) 0%, transparent 60%);
-  opacity: 0;
-  transition: opacity .2s;
-}
-.metric-card:hover { border-color: var(--blue-dim); transform: translateY(-1px); }
-.metric-card:hover::before { opacity: .4; }
-
-.metric-card span {
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .8px;
-  position: relative;
-}
-.metric-card strong {
-  color: var(--text-primary);
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -1px;
-  line-height: 1;
-  position: relative;
-}
-.metric-card small {
-  color: var(--text-muted);
-  font-size: 9px;
-  position: relative;
-}
 
 /* ─────────────────────────────────────────
    PANELS / CARDS
@@ -980,7 +923,6 @@ footer span span { margin: 0 4px; }
 ───────────────────────────────────────── */
 @media (max-width: 1020px) {
   .app-layout { grid-template-columns: 176px minmax(0, 1fr); }
-  .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 760px) {
   .app-layout { display: flex; flex-direction: column; }
@@ -996,7 +938,7 @@ footer span span { margin: 0 4px; }
   .sidebar-heading, .sidebar-note { display: none; }
   .sidebar-nav { display: flex; gap: 4px; overflow-x: auto; }
   .sidebar-nav a { flex-shrink: 0; padding: 7px 10px; white-space: nowrap; }
-  .dashboard { padding: 24px 16px 32px; }
+  .app-main { padding: 24px 16px 32px; }
   .welcome { display: block; }
   .step-indicator { margin-top: 16px; }
 }
@@ -1007,9 +949,6 @@ footer span span { margin: 0 4px; }
   .api-key-entry input { width: 100px; height: 30px; }
   .api-key-button { height: 30px; padding: 0 8px; font-size: 10px; }
   .api-status { font-size: 10px; min-height: 30px; }
-  .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
-  .metric-card { min-height: 72px; padding: 11px 12px; }
-  .metric-card strong { font-size: 22px; }
   .intake-panel { padding: 18px 16px; }
   .report-editor { padding: 18px 16px; }
   .report-field-grid { grid-template-columns: 1fr; }

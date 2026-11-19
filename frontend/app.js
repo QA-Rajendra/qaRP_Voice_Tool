@@ -8,9 +8,9 @@
  *   4. VOICE ENGINE   – browser SpeechRecognition fallback
  *   5. GEMINI LIVE    – WebSocket + AudioWorklet voice session
  *   6. REPORT ENGINE  – generation, form rendering, save/copy
- *   7. DASHBOARD      – analytics loading
- *   8. API KEY        – Gemini status check + key submission
- *   9. EVENT LISTENERS
+ *   7. API KEY        – Gemini status check + key submission
+ *   8. EVENT LISTENERS
+ *   9. VOICE STUDIO   – speech synthesis controls
  *  10. INIT
  */
 
@@ -1217,7 +1217,6 @@ async function saveReport() {
     saveReportButton.textContent = 'Saved';
     saveReportButton.disabled = true;
     reportFieldGrid.replaceChildren(...formDefinition.map(createFieldCard));
-    loadAnalytics();
   } catch (err) {
     reportStatus.textContent = err.message;
     saveReportButton.disabled = false;
@@ -1279,31 +1278,7 @@ function resetWorkspace() {
 }
 
 /* ============================================================
-   7. DASHBOARD
-   ============================================================ */
-
-/**
- * Fetches analytics from the backend and updates the 6 metric cards.
- * On failure silently resets the card values to '—'.
- */
-async function loadAnalytics() {
-  try {
-    const response = await fetch('/api/bug-reports/analytics');
-    if (!response.ok) throw new Error('Could not load report metrics.');
-    const m = await response.json();
-    document.querySelector('#metric-total-bugs').textContent      = m.totalBugs;
-    document.querySelector('#metric-open-bugs').textContent       = m.openBugs;
-    document.querySelector('#metric-critical-bugs').textContent   = m.criticalBugs;
-    document.querySelector('#metric-resolved-bugs').textContent   = m.resolvedBugs;
-    document.querySelector('#metric-generated-reports').textContent = m.generatedReports;
-    document.querySelector('#metric-ai-history').textContent      = m.aiAnalysisHistory;
-  } catch (_) {
-    for (const el of document.querySelectorAll('.metric-card strong')) el.textContent = '—';
-  }
-}
-
-/* ============================================================
-   8. API KEY  –  Gemini connection status
+   7. API KEY  –  Gemini connection status
    ============================================================ */
 
 /**
@@ -1333,7 +1308,7 @@ async function checkGeminiStatus() {
 }
 
 /* ============================================================
-   9. EVENT LISTENERS
+   8. EVENT LISTENERS
    ============================================================ */
 
 // --- Description textarea ---
@@ -1467,7 +1442,7 @@ apiKeyForm.addEventListener('submit', async (event) => {
 apiStatusRefresh.addEventListener('click', checkGeminiStatus);
 
 /* ============================================================
-   10. VOICE STUDIO / SYNTHESIS MODULE
+   9. VOICE STUDIO / SYNTHESIS MODULE
    ============================================================ */
 
 const cloneAudioFileInput = document.querySelector('#clone-audio-file');
@@ -1606,10 +1581,9 @@ function initVoiceStudio() {
 }
 
 /* ============================================================
-   11. INIT
+   10. INIT
    ============================================================ */
 
 configureSpeechRecognition();
 initVoiceStudio();
-loadAnalytics();
 checkGeminiStatus();

@@ -46,3 +46,23 @@ test('live voice maps provider token failures to a safe response', async () => {
     && error.status === 502
     && !error.message.includes('provider detail'));
 });
+
+test('live voice explains invalid API keys without exposing provider details', async () => {
+  const service = createLiveVoiceService({
+    configProvider: () => ({ geminiApiKey: 'server-only-test-key', geminiLiveModel: 'test-live-model' }),
+    clientFactory: async () => ({
+      authTokens: {
+        create: async () => {
+          throw new Error(JSON.stringify({
+            error: {
+              details: [{ reason: 'API_KEY_INVALID' }],
+            },
+          }));
+        },
+      },
+    }),
+  });
+  await assert.rejects(service.createSession(), (error) => error.code === 'LIVE_TOKEN_UNAVAILABLE'
+    && error.status === 502
+    && error.message === 'The Gemini API key is invalid. Add a valid key and try voice again.');
+});
