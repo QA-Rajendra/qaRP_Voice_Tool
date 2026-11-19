@@ -69,7 +69,6 @@
           <p class="sidebar-heading">WORKSPACE</p>
           <nav class="sidebar-nav">
             <a href="#voice-assistant-section">AI Voice Assistant</a>
-            <a href="#voice-clone-section">Voice Studio</a>
           </nav>
           <p class="sidebar-note">AI requests send selected content to Google Gemini. Saved reports stay in local SQLite.</p>
         </aside>
@@ -197,74 +196,6 @@
             <p class="privacy-note">
               <span aria-hidden="true">▣</span> Nothing is saved until you choose Save.
             </p>
-          </section>
-
-          <!-- ===== VOICE CLONING / SYNTHESIS STUDIO ===== -->
-          <section class="panel intake-panel" id="voice-clone-section" aria-labelledby="clone-title" style="margin-top: 20px;">
-            <div class="panel-heading">
-              <div class="heading-icon purple" aria-hidden="true">🎙</div>
-              <div>
-                <h2 id="clone-title">Voice Studio & Synthesis</h2>
-                <p>Use reference recordings and browser neural voice engines to test voice cloning & speech synthesis.</p>
-              </div>
-            </div>
-
-            <div class="workspace-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
-              <!-- Reference voice panel -->
-              <div style="background: var(--bg-overlay); border: 1px solid var(--line); border-radius: var(--r-md); padding: 14px;">
-                <p class="field-label">1. Voice Reference</p>
-                <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px;">
-                  Upload clean audio (5–15s sample) or record a voice reference directly.
-                </p>
-                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
-                  <label class="button button-secondary" style="cursor: pointer;">
-                    Upload Audio
-                    <input type="file" id="clone-audio-file" accept="audio/*" style="display: none;">
-                  </label>
-                  <button class="button button-mic" id="clone-record-btn" type="button">
-                    <span aria-hidden="true">●</span> Record Reference
-                  </button>
-                </div>
-                <div id="clone-audio-preview-wrap" hidden style="margin-top: 10px;">
-                  <audio id="clone-audio-player" controls style="width: 100%; height: 36px;"></audio>
-                  <p id="clone-audio-filename" style="font-size: 10px; color: var(--text-secondary); margin-top: 4px;"></p>
-                </div>
-                <label class="field-label" for="clone-sample-transcript" style="margin-top: 10px;">Sample Transcript (Optional)</label>
-                <textarea id="clone-sample-transcript" rows="2" style="min-height: 50px;" placeholder="Exact words spoken in the sample for alignment..."></textarea>
-              </div>
-
-              <!-- Synthesis Script & Playback -->
-              <div style="background: var(--bg-overlay); border: 1px solid var(--line); border-radius: var(--r-md); padding: 14px;">
-                <p class="field-label">2. Script & Synthesize</p>
-                <label class="field-label" for="clone-script-input">Text to Speak</label>
-                <textarea id="clone-script-input" rows="3" style="min-height: 80px;" placeholder="Enter script to synthesize with target voice..."></textarea>
-                
-                <div style="display: flex; gap: 10px; align-items: center; margin: 10px 0; flex-wrap: wrap;">
-                  <label for="clone-voice-select" style="font-size: 11px; color: var(--text-secondary);">
-                    Target Voice:
-                    <select id="clone-voice-select" style="margin-left: 4px;"></select>
-                  </label>
-                  <label for="clone-pitch-slider" style="font-size: 11px; color: var(--text-secondary);">
-                    Pitch:
-                    <input type="range" id="clone-pitch-slider" min="0.5" max="1.5" step="0.1" value="1.0" style="vertical-align: middle; width: 60px;">
-                  </label>
-                  <label for="clone-rate-slider" style="font-size: 11px; color: var(--text-secondary);">
-                    Rate:
-                    <input type="range" id="clone-rate-slider" min="0.5" max="1.5" step="0.1" value="1.0" style="vertical-align: middle; width: 60px;">
-                  </label>
-                </div>
-
-                <div style="display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap;">
-                  <button class="button button-primary" id="clone-synth-btn" type="button">
-                    Synthesize Audio
-                  </button>
-                  <button class="button button-secondary" id="clone-save-profile-btn" type="button">
-                    Save as Profile
-                  </button>
-                </div>
-                <p id="clone-status" style="font-size: 11px; color: var(--text-muted); margin-top: 8px;"></p>
-              </div>
-            </div>
           </section>
 
           <!-- ===== REPORT EDITOR (hidden until report is generated) ===== -->

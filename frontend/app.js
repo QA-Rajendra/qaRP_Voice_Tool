@@ -10,8 +10,7 @@
  *   6. REPORT ENGINE  – generation, form rendering, save/copy
  *   7. API KEY        – Gemini status check + key submission
  *   8. EVENT LISTENERS
- *   9. VOICE STUDIO   – speech synthesis controls
- *  10. INIT
+ *   9. INIT
  */
 
 'use strict';
@@ -613,9 +612,7 @@ async function startLiveVoice() {
         socket.send(JSON.stringify({
           setup: {
             model: `models/${credentials.model}`,
-            generationConfig: {
-              responseModalities: ['AUDIO'],
-            },
+            responseModalities: ['AUDIO'],
             inputAudioTranscription: {},
             outputAudioTranscription: {},
           },
@@ -1461,148 +1458,8 @@ apiKeyForm.addEventListener('submit', async (event) => {
 apiStatusRefresh.addEventListener('click', checkGeminiStatus);
 
 /* ============================================================
-   9. VOICE STUDIO / SYNTHESIS MODULE
-   ============================================================ */
-
-const cloneAudioFileInput = document.querySelector('#clone-audio-file');
-const cloneRecordBtn = document.querySelector('#clone-record-btn');
-const cloneAudioPlayer = document.querySelector('#clone-audio-player');
-const cloneAudioPreviewWrap = document.querySelector('#clone-audio-preview-wrap');
-const cloneAudioFilename = document.querySelector('#clone-audio-filename');
-const cloneSampleTranscript = document.querySelector('#clone-sample-transcript');
-const cloneScriptInput = document.querySelector('#clone-script-input');
-const cloneVoiceSelect = document.querySelector('#clone-voice-select');
-const clonePitchSlider = document.querySelector('#clone-pitch-slider');
-const cloneRateSlider = document.querySelector('#clone-rate-slider');
-const cloneSynthBtn = document.querySelector('#clone-synth-btn');
-const cloneSaveProfileBtn = document.querySelector('#clone-save-profile-btn');
-const cloneStatus = document.querySelector('#clone-status');
-
-let mediaRecorder = null;
-let recordedAudioChunks = [];
-let isRecordingClone = false;
-
-function initVoiceStudio() {
-  if (!('speechSynthesis' in window)) {
-    if (cloneStatus) cloneStatus.textContent = 'Web Speech Synthesis is not supported in this browser.';
-    return;
-  }
-
-  function populateVoices() {
-    if (!cloneVoiceSelect) return;
-    const voices = window.speechSynthesis.getVoices();
-    cloneVoiceSelect.replaceChildren();
-    voices.forEach((voice, index) => {
-      const opt = document.createElement('option');
-      opt.value = index;
-      opt.textContent = `${voice.name} (${voice.lang})${voice.default ? ' — Default' : ''}`;
-      cloneVoiceSelect.appendChild(opt);
-    });
-  }
-
-  populateVoices();
-  if (window.speechSynthesis.onvoiceschanged !== undefined) {
-    window.speechSynthesis.onvoiceschanged = populateVoices;
-  }
-
-  if (cloneAudioFileInput) {
-    cloneAudioFileInput.addEventListener('change', (e) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        const url = URL.createObjectURL(file);
-        cloneAudioPlayer.src = url;
-        cloneAudioFilename.textContent = `File: ${file.name} (${Math.round(file.size / 1024)} KB)`;
-        cloneAudioPreviewWrap.hidden = false;
-        if (cloneStatus) cloneStatus.textContent = `Reference audio loaded: ${file.name}`;
-      }
-    });
-  }
-
-  if (cloneRecordBtn) {
-    cloneRecordBtn.addEventListener('click', async () => {
-      if (isRecordingClone && mediaRecorder) {
-        mediaRecorder.stop();
-        return;
-      }
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        recordedAudioChunks = [];
-        mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) recordedAudioChunks.push(event.data);
-        };
-        mediaRecorder.onstop = () => {
-          isRecordingClone = false;
-          cloneRecordBtn.innerHTML = '<span aria-hidden="true">●</span> Record Reference';
-          cloneRecordBtn.setAttribute('aria-pressed', 'false');
-          stream.getTracks().forEach((t) => t.stop());
-          const blob = new Blob(recordedAudioChunks, { type: 'audio/webm' });
-          const url = URL.createObjectURL(blob);
-          cloneAudioPlayer.src = url;
-          cloneAudioFilename.textContent = `Recorded voice reference (${Math.round(blob.size / 1024)} KB)`;
-          cloneAudioPreviewWrap.hidden = false;
-          if (cloneStatus) cloneStatus.textContent = 'Voice reference sample captured successfully.';
-        };
-        mediaRecorder.start();
-        isRecordingClone = true;
-        cloneRecordBtn.innerHTML = '<span aria-hidden="true">■</span> Stop Recording';
-        cloneRecordBtn.setAttribute('aria-pressed', 'true');
-        if (cloneStatus) cloneStatus.textContent = 'Recording 5–15s reference voice sample...';
-      } catch (err) {
-        if (cloneStatus) cloneStatus.textContent = `Microphone error: ${err.message}`;
-      }
-    });
-  }
-
-  if (cloneSynthBtn) {
-    cloneSynthBtn.addEventListener('click', () => {
-      const text = cloneScriptInput.value.trim();
-      if (!text) {
-        if (cloneStatus) cloneStatus.textContent = 'Please enter a script text to synthesize.';
-        cloneScriptInput.focus();
-        return;
-      }
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      const voices = window.speechSynthesis.getVoices();
-      const selectedIndex = cloneVoiceSelect ? Number(cloneVoiceSelect.value) : 0;
-      if (voices[selectedIndex]) {
-        utterance.voice = voices[selectedIndex];
-      }
-      if (clonePitchSlider) utterance.pitch = Number(clonePitchSlider.value) || 1.0;
-      if (cloneRateSlider) utterance.rate = Number(cloneRateSlider.value) || 1.0;
-
-      utterance.onstart = () => {
-        if (cloneStatus) cloneStatus.textContent = 'Synthesizing voice playback...';
-        cloneSynthBtn.disabled = true;
-      };
-      utterance.onend = () => {
-        if (cloneStatus) cloneStatus.textContent = 'Voice synthesis complete.';
-        cloneSynthBtn.disabled = false;
-      };
-      utterance.onerror = (e) => {
-        if (cloneStatus) cloneStatus.textContent = `Synthesis error: ${e.error}`;
-        cloneSynthBtn.disabled = false;
-      };
-
-      window.speechSynthesis.speak(utterance);
-    });
-  }
-
-  if (cloneSaveProfileBtn) {
-    cloneSaveProfileBtn.addEventListener('click', () => {
-      const profileName = prompt('Enter a name for this voice profile:', 'Voice-Profile-1');
-      if (profileName) {
-        if (cloneStatus) cloneStatus.textContent = `Voice profile "${profileName}" saved to workspace.`;
-      }
-    });
-  }
-}
-
-/* ============================================================
-   10. INIT
+   9. INIT
    ============================================================ */
 
 configureSpeechRecognition();
-initVoiceStudio();
 checkGeminiStatus();

@@ -229,6 +229,8 @@ test('browser UI streams mocked Gemini Live audio and keeps the transcript edita
     await page.goto(baseUrl);
     assert.equal(await page.getByRole('link', { name: 'Dashboard' }).count(), 0);
     assert.equal(await page.locator('.metrics-grid').count(), 0);
+    assert.equal(await page.getByRole('link', { name: 'Voice Studio' }).count(), 0);
+    assert.equal(await page.locator('#voice-clone-section').count(), 0);
     await page.locator('#mic-button').click();
     await page.waitForFunction(() => document.querySelector('#voice-status')?.textContent.includes('Listening live'));
     assert.deepEqual(await page.evaluate(() => window.__liveSetup.responseModalities), ['AUDIO']);
