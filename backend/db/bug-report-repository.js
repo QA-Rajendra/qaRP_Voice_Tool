@@ -28,11 +28,12 @@ function createRepository(database = getDatabase()) {
 
   return {
     create(input) {
-      const now = new Date().toISOString();
       const report = BugReportSchema.parse({
         ...createEmptyReport(), ...input,
-        reportId: `BUG-${randomUUID()}`, timestamps: { createdAt: now, updatedAt: now },
-        reportedDate: input.reportedDate || now.slice(0, 10),
+        reportId: `BUG-${randomUUID()}`,
+        reportedDate: input.reportedDate && input.reportedDate !== 'Not provided'
+          ? input.reportedDate
+          : new Date().toISOString().slice(0, 10),
       });
       insert.run(...fields.map((field) => encode(field, report[field])));
       return report;
@@ -45,10 +46,7 @@ function createRepository(database = getDatabase()) {
     update(id, changes) {
       const current = decodeRow(selectOne.get(id));
       if (!current) return null;
-      const report = BugReportSchema.parse({
-        ...current, ...changes, reportId: id,
-        timestamps: { createdAt: current.timestamps.createdAt, updatedAt: new Date().toISOString() },
-      });
+      const report = BugReportSchema.parse({ ...current, ...changes, reportId: id });
       const mutableFields = fields.filter((field) => field !== 'reportId');
       const assignments = mutableFields.map((field) => `"${toColumn(field)}" = ?`).join(', ');
       database.prepare(`UPDATE bug_reports SET ${assignments} WHERE report_id = ?`)
@@ -82,7 +80,7 @@ function createRepository(database = getDatabase()) {
 
       const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
       const total = database.prepare(`SELECT COUNT(*) AS count FROM bug_reports ${where}`).get(...values).count;
-      const rows = database.prepare(`SELECT * FROM bug_reports ${where} ORDER BY json_extract(timestamps, '$.updatedAt') DESC, report_id DESC LIMIT ? OFFSET ?`)
+      const rows = database.prepare(`SELECT * FROM bug_reports ${where} ORDER BY reported_date DESC, report_id DESC LIMIT ? OFFSET ?`)
         .all(...values, safePageSize, (safePage - 1) * safePageSize);
       return { reports: rows.map(decodeRow), page: safePage, pageSize: safePageSize, total };
     },

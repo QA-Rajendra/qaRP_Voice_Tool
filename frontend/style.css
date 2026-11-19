@@ -646,6 +646,46 @@ select:focus-visible { border-color: var(--blue); }
 }
 .answer-button { margin-top: 8px; }
 
+.english-review {
+  margin-top: 18px;
+  padding: 16px;
+  background: var(--bg-overlay);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.english-review h3 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.original-description {
+  margin: 6px 0 14px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.english-review textarea {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  background: var(--bg-hover);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 10px;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.6;
+  resize: vertical;
+}
+.english-review textarea[readonly] { color: var(--text-secondary); }
+.english-review-actions { margin-top: 10px; }
+
 .privacy-note {
   display: flex;
   gap: 7px;
@@ -730,42 +770,7 @@ select:focus-visible { border-color: var(--blue); }
 .badge.suggested { color: var(--amber); background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.2); }
 .badge.missing   { color: var(--red);   background: rgba(239,68,68,.12);  border: 1px solid rgba(239,68,68,.2); }
 
-.analysis-panel {
-  margin: 0 0 18px;
-  padding: 14px 16px;
-  background: var(--bg-overlay);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-}
-.analysis-panel h3 {
-  margin: 0 0 10px;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: .8px;
-}
-.analysis-columns {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-.analysis-columns h4 {
-  margin: 0 0 6px;
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .5px;
-}
-.analysis-columns ul {
-  margin: 0;
-  padding-left: 16px;
-  color: var(--text-secondary);
-  font-size: 11px;
-  line-height: 1.65;
-}
-
+.report-fields { min-width: 0; margin: 0; padding: 0; border: 0; }
 .report-field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -952,10 +957,47 @@ footer span span { margin: 0 4px; }
   .report-editor { padding: 18px 16px; }
   .report-field-grid { grid-template-columns: 1fr; }
   .report-field.wide { grid-column: auto; }
-  .analysis-columns { grid-template-columns: 1fr; }
   .report-editor-heading { display: block; }
   .badge-legend { margin-top: 12px; }
   footer { flex-direction: column; }
+}
+
+@media print {
+  @page { margin: 14mm; }
+  body.printing-report { color: #111; background: #fff; }
+  body.printing-report .topbar,
+  body.printing-report .app-sidebar,
+  body.printing-report .welcome,
+  body.printing-report .intake-panel,
+  body.printing-report .status-panel,
+  body.printing-report footer { display: none !important; }
+  body.printing-report .app-layout { display: block; }
+  body.printing-report .app-main { padding: 0; }
+  body.printing-report .report-editor {
+    display: block !important;
+    margin: 0;
+    padding: 0;
+    color: #111;
+    background: #fff;
+    border: 0;
+    box-shadow: none;
+  }
+  body.printing-report .report-editor *,
+  body.printing-report .report-editor input,
+  body.printing-report .report-editor textarea,
+  body.printing-report .report-editor select {
+    color: #111 !important;
+    background: #fff !important;
+    border-color: #bbb !important;
+    -webkit-text-fill-color: #111;
+  }
+  body.printing-report .report-actions,
+  body.printing-report .formatted-report-preview { display: none !important; }
+  body.printing-report .report-field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body.printing-report .report-field { break-inside: avoid; }
+  body.printing-report .report-field input,
+  body.printing-report .report-field textarea,
+  body.printing-report .report-field select { border: 0 !important; padding: 0; }
 }
 
 /* scrollbar styling for webkit */

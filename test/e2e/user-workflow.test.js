@@ -19,29 +19,21 @@ function generatedReport() {
   const report = {
     ...createEmptyReport(),
     bugTitle: 'Login button does not respond after valid credentials.',
-    summary: 'The Login button does not respond after valid credentials are entered.',
     bugType: 'Functional',
     reproductionSteps: ['Enter valid credentials.', 'Click Login.'],
     expectedResult: 'The user is redirected to the dashboard.',
     actualResult: 'Nothing happens after Login is clicked.',
     severity: { value: 'Major', suggested: true, reason: 'A core user flow is blocked.' },
     priority: { value: 'High', suggested: true, reason: 'The user cannot sign in.' },
-    confirmedFacts: ['The Login button does nothing after credentials are entered.'],
-    assumptionsAndMissingInformation: { assumptions: [], missingInfo: ['Browser and device were not provided.'] },
   };
-  return {
-    report,
-    confirmedFacts: report.confirmedFacts,
-    assumptions: [],
-    missingInfo: report.assumptionsAndMissingInformation.missingInfo,
-    clarifyingQuestions: [],
-  };
+  return { report };
 }
 
-test('typed Marathi intake completes clarification, report save/edit, search, export, and screenshot rejection', async () => {
+test('typed Marathi intake converts to reviewed English before report generation and save', async () => {
   const database = await createMemoryDatabase();
   const repository = createRepository(database);
   const clarificationInputs = [];
+  const conversionInputs = [];
   const generationInputs = [];
   const app = createApp({
     repository,
@@ -50,11 +42,17 @@ test('typed Marathi intake completes clarification, report save/edit, search, ex
         clarificationInputs.push(input);
         const answered = input.messages.some((message) => message.role === 'user');
         return answered
-          ? { cleanDescription: `${input.description} Chrome Android`, readyToGenerate: true, clarifyingQuestions: [] }
+          ? { cleanDescription: input.description, readyToGenerate: true, clarifyingQuestions: [] }
           : { cleanDescription: input.description, readyToGenerate: false, clarifyingQuestions: ['Which browser and device did you use?'] };
       },
     },
-    generationService: { generateReport: async (input) => { generationInputs.push(input); return generatedReport(); } },
+    generationService: {
+      convertToProfessionalEnglish: async (input) => {
+        conversionInputs.push(input);
+        return { englishDescription: 'The login button does not respond after valid credentials on Chrome Android.' };
+      },
+      generateReport: async (input) => { generationInputs.push(input); return generatedReport(); },
+    },
     qaSuggestionsService: { generateSuggestions: async () => ({
       label: 'AI suggestion',
       suggestions: {
@@ -72,11 +70,11 @@ test('typed Marathi intake completes clarification, report save/edit, search, ex
     const homeText = await home.text();
     const appScript = await (await fetch(`${baseUrl}/app.js`)).text();
     assert.equal(home.status, 200);
-    assert.match(homeText, /Bug report library/);
-    assert.match(homeText, /Download JSON/);
-    assert.match(homeText, /Download CSV/);
-    assert.match(homeText, /Print \/ Save as PDF/);
-    assert.match(homeText, /Generate QA suggestions/);
+    assert.match(homeText, /Convert to Professional English/);
+    assert.match(homeText, /Professional English Bug Description/);
+    assert.match(homeText, /Generate Professional Bug Report/);
+    assert.match(homeText, /Download as TXT/);
+    assert.match(homeText, /Download as PDF/);
     assert.doesNotMatch(appScript, /GEMINI_API_KEY/);
     if (process.env.GEMINI_API_KEY) assert.ok(!appScript.includes(process.env.GEMINI_API_KEY), 'Permanent key appeared in the browser script.');
 
@@ -101,16 +99,29 @@ test('typed Marathi intake completes clarification, report save/edit, search, ex
     assert.equal(answeredClarification.status, 200);
     assert.equal(secondTurn.readyToGenerate, true);
 
-    const generated = await fetch(`${baseUrl}/api/bug-reports/generate`, {
+    const converted = await fetch(`${baseUrl}/api/bug-reports/english-description`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ description: secondTurn.cleanDescription, language: 'mr', clarifications: [
+      body: JSON.stringify({ description, language: 'mr', clarifications: [
         { question: firstTurn.clarifyingQuestions[0], answer: 'Chrome on Android.' },
       ] }),
     });
+    const english = await converted.json();
+    assert.equal(converted.status, 200);
+    assert.equal(conversionInputs[0].description, description);
+    assert.equal(english.englishDescription, 'The login button does not respond after valid credentials on Chrome Android.');
+
+    const generated = await fetch(`${baseUrl}/api/bug-reports/generate`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        englishDescription: english.englishDescription,
+        englishDescriptionReviewed: true,
+      }),
+    });
     const draft = await generated.json();
     assert.equal(generated.status, 200);
-    assert.equal(generationInputs[0].language, 'mr');
-    assert.match(generationInputs[0].description, /लॉगिन/);
+    assert.equal(generationInputs[0].englishDescription, english.englishDescription);
+    assert.equal(generationInputs[0].englishDescriptionReviewed, true);
+    assert.equal(Object.keys(draft.report).length, 22);
     assert.equal(draft.report.reportId, '');
     assert.equal(repository.list({}).total, 0);
 
@@ -140,12 +151,6 @@ test('typed Marathi intake completes clarification, report save/edit, search, ex
     assert.equal(exportBody.bugTitle, editedReport.bugTitle);
     const csvExport = await fetch(`${baseUrl}/api/bug-reports/${saved.report.reportId}/export?format=csv&fields=bugTitle`);
     assert.match(await csvExport.text(), /Bug Title/);
-
-    const qaSuggestions = await fetch(`${baseUrl}/api/bug-reports/${saved.report.reportId}/qa-suggestions`, { method: 'POST' });
-    const qa = await qaSuggestions.json();
-    assert.equal(qaSuggestions.status, 200);
-    assert.equal(qa.label, 'AI suggestion');
-    assert.ok(qa.suggestions.negativeScenarios.length);
 
     const invalidImage = new FormData();
     invalidImage.append('image', new Blob(['not an image'], { type: 'image/png' }), 'bad.png');

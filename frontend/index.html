@@ -102,7 +102,7 @@
 
             <!-- Bug description textarea -->
             <label class="field-label" for="description">
-              Bug description <span>Required</span>
+              Original Bug Description <span>Required</span>
             </label>
             <textarea
               id="description"
@@ -127,8 +127,8 @@
               <button class="button button-secondary" id="clarify-button" type="button" hidden>
                 Ask follow-up questions
               </button>
-              <button class="button button-primary" id="generate-button" type="button">
-                Generate report
+              <button class="button button-primary" id="convert-button" type="button">
+                Convert to Professional English
               </button>
               <button
                 class="button button-mic"
@@ -154,6 +154,28 @@
               </p>
               <p id="voice-response" class="voice-response" hidden></p>
             </div>
+
+            <section class="english-review" id="english-review" aria-labelledby="english-review-title" hidden>
+              <h3 id="english-review-title">Review the English description</h3>
+              <p class="field-label">Original Bug Description</p>
+              <p class="original-description" id="original-description-output"></p>
+              <label class="field-label" for="english-description">Professional English Bug Description</label>
+              <textarea id="english-description" rows="5" readonly></textarea>
+              <div class="report-actions english-review-actions">
+                <button class="button button-secondary" id="copy-english-description" type="button">
+                  Copy English Description
+                </button>
+                <button class="button button-secondary" id="edit-english-description" type="button">
+                  Edit English Description
+                </button>
+                <button class="button button-secondary" id="confirm-english-description" type="button">
+                  Confirm English Description
+                </button>
+                <button class="button button-primary" id="generate-button" type="button" disabled>
+                  Generate Professional Bug Report
+                </button>
+              </div>
+            </section>
 
             <!-- Clarification chat thread (hidden until "Ask follow-up" is clicked) -->
             <section
@@ -198,8 +220,8 @@
             <div class="report-editor-heading">
               <div>
                 <p class="eyebrow">REVIEW BEFORE SAVING</p>
-                <h2 id="report-editor-title">Bug report draft</h2>
-                <p class="subtitle">Edit any field. AI suggestions remain marked until you confirm them by editing.</p>
+                <h2 id="report-editor-title">Complete Bug Report</h2>
+                <p class="subtitle">Review the exact 22-field report. Unknown details are marked as not provided.</p>
               </div>
               <div class="badge-legend" aria-label="Field badge legend">
                 <span class="badge confirmed">Confirmed</span>
@@ -208,33 +230,32 @@
               </div>
             </div>
 
-            <!-- AI analysis panel (confirmed facts + assumptions/missing) -->
-            <section class="analysis-panel" aria-labelledby="analysis-title">
-              <h3 id="analysis-title">AI bug analysis</h3>
-              <div class="analysis-columns">
-                <div>
-                  <h4>Confirmed facts</h4>
-                  <ul id="analysis-facts"></ul>
-                </div>
-                <div>
-                  <h4>Assumptions and missing information</h4>
-                  <ul id="analysis-open-items"></ul>
-                </div>
-              </div>
-            </section>
-
             <!-- Dynamic report form -->
             <form id="report-form">
-              <div class="report-field-grid" id="report-field-grid"></div>
+              <fieldset class="report-fields" id="report-fields" disabled>
+                <div class="report-field-grid" id="report-field-grid"></div>
+              </fieldset>
               <div class="report-actions">
                 <button class="button button-primary" id="save-report-button" type="button">
                   Save report
                 </button>
+                <button class="button button-secondary" id="edit-report-button" type="button">
+                  Edit Report
+                </button>
                 <button class="button button-secondary" id="copy-report-button" type="button">
-                  Copy report
+                  Copy Full Report
+                </button>
+                <button class="button button-secondary" id="download-txt-button" type="button">
+                  Download as TXT
+                </button>
+                <button class="button button-secondary" id="download-pdf-button" type="button">
+                  Download as PDF
+                </button>
+                <button class="button button-secondary" id="regenerate-report-button" type="button">
+                  Regenerate Report
                 </button>
                 <button class="button button-mic" id="reset-report-button" type="button">
-                  Reset
+                  Clear All
                 </button>
               </div>
               <!-- Collapsible formatted report preview -->

@@ -13,52 +13,34 @@ const suggestedChoice = (values) => z.object({
   reason: text,
 }).strict();
 
-// The field map is the canonical contract used by validation, SQLite and exports.
+// The field map is the canonical 22-field contract used by validation, SQLite and exports.
 // Complex values are stored as JSON text in SQLite.
 const FIELD_DEFINITIONS = {
-  reportId: { schema: text, storage: 'text', searchable: false, editor: 'text', label: 'Bug ID' },
-  bugTitle: { schema: text, storage: 'text', searchable: true, editor: 'text', label: 'Bug Title' },
-  summary: { schema: text, storage: 'text', searchable: true, editor: 'textarea' },
-  bugType: { schema: z.enum(BUG_TYPES), storage: 'text', searchable: true, editor: 'select', options: BUG_TYPES },
-  status: { schema: z.enum(STATUSES), storage: 'text', searchable: true, editor: 'select', options: STATUSES },
   productProject: { schema: text, storage: 'text', searchable: true, editor: 'text', label: 'Project Name' },
+  reportId: { schema: text, storage: 'text', searchable: false, editor: 'text', label: 'Bug ID' },
   moduleComponent: { schema: text, storage: 'text', searchable: true, editor: 'text', label: 'Module' },
   subModule: { schema: text, storage: 'text', searchable: true, editor: 'text', label: 'Sub Module' },
+  bugTitle: { schema: text, storage: 'text', searchable: true, editor: 'text', label: 'Bug Title' },
+  bugType: { schema: z.enum(BUG_TYPES), storage: 'text', searchable: true, editor: 'select', options: BUG_TYPES },
   environment: { schema: text, storage: 'text', searchable: true, editor: 'textarea' },
   applicationBuildVersion: { schema: text, storage: 'text', searchable: true, editor: 'text', label: 'Build Version' },
-  operatingSystemPlatform: { schema: text, storage: 'text', searchable: true, editor: 'text' },
-  browserDevice: { schema: text, storage: 'text', searchable: true, editor: 'text' },
+  browserDevice: { schema: text, storage: 'text', searchable: true, editor: 'text', label: 'Browser / Device' },
+  severity: { schema: suggestedChoice(SEVERITIES), storage: 'json', searchable: false, editor: 'suggested-choice', options: SEVERITIES },
+  priority: { schema: suggestedChoice(PRIORITIES), storage: 'json', searchable: false, editor: 'suggested-choice', options: PRIORITIES },
   preconditions: { schema: textList, storage: 'json', searchable: true, editor: 'list', label: 'Preconditions' },
   testData: { schema: textList, storage: 'json', searchable: true, editor: 'list', label: 'Test Data' },
   reproductionSteps: { schema: textList, storage: 'json', searchable: true, editor: 'list', label: 'Steps to Reproduce' },
   expectedResult: { schema: text, storage: 'text', searchable: true, editor: 'textarea' },
   actualResult: { schema: text, storage: 'text', searchable: true, editor: 'textarea' },
-  severity: { schema: suggestedChoice(SEVERITIES), storage: 'json', searchable: false, editor: 'suggested-choice', options: SEVERITIES, label: 'Severity' },
-  priority: { schema: suggestedChoice(PRIORITIES), storage: 'json', searchable: false, editor: 'suggested-choice', options: PRIORITIES, label: 'Priority' },
-  reproductionFrequency: { schema: text, storage: 'text', searchable: true, editor: 'text' },
-  firstObservedDateTime: { schema: text, storage: 'text', searchable: false, editor: 'text', label: 'First Observed Date / Time' },
-  reporter: { schema: text, storage: 'text', searchable: true, editor: 'text', label: 'Reported By' },
+  status: { schema: z.enum(STATUSES), storage: 'text', searchable: true, editor: 'select', options: STATUSES },
   assignee: { schema: text, storage: 'text', searchable: true, editor: 'text', label: 'Assigned To' },
+  reporter: { schema: text, storage: 'text', searchable: true, editor: 'text', label: 'Reported By' },
   reportedDate: { schema: text, storage: 'text', searchable: false, editor: 'text', label: 'Reported Date' },
-  labels: { schema: textList, storage: 'json', searchable: true, editor: 'list' },
   attachmentReferences: {
     schema: z.array(z.object({ id: text, name: text }).strict()),
     storage: 'json', searchable: false, editor: 'attachments', label: 'Attachment: Screenshot / Video / Logs',
   },
-  screenshotFindings: { schema: textList, storage: 'json', searchable: true, editor: 'list' },
-  logsEvidence: { schema: text, storage: 'text', searchable: true, editor: 'textarea' },
-  suspectedCause: { schema: text, storage: 'text', searchable: true, editor: 'textarea' },
   remarks: { schema: text, storage: 'text', searchable: true, editor: 'textarea', label: 'Remarks' },
-  confirmedFacts: { schema: textList, storage: 'json', searchable: true, editor: 'list' },
-  assumptionsAndMissingInformation: {
-    schema: z.object({ assumptions: textList, missingInfo: textList }).strict(),
-    storage: 'json', searchable: true, editor: 'assumptions',
-  },
-  suggestedTestsRegressionCoverage: { schema: textList, storage: 'json', searchable: true, editor: 'list' },
-  timestamps: {
-    schema: z.object({ createdAt: text, updatedAt: text }).strict(),
-    storage: 'json', searchable: false, editor: 'timestamps',
-  },
 };
 
 const BugReportSchema = z.object(Object.fromEntries(
@@ -82,17 +64,12 @@ function getFormDefinition() {
 
 function createEmptyReport() {
   return {
-    reportId: '', bugTitle: '', summary: '', bugType: 'Other', status: 'New',
-    productProject: '', moduleComponent: '', environment: '', applicationBuildVersion: '',
-    subModule: '', testData: [], reportedDate: '', remarks: '',
-    operatingSystemPlatform: '', browserDevice: '', preconditions: [], reproductionSteps: [],
-    expectedResult: '', actualResult: '',
+    productProject: '', reportId: '', moduleComponent: '', subModule: '', bugTitle: '',
+    bugType: 'Other', environment: '', applicationBuildVersion: '', browserDevice: '',
     severity: { value: null, suggested: true, reason: '' },
     priority: { value: null, suggested: true, reason: '' },
-    reproductionFrequency: '', firstObservedDateTime: '', reporter: '', assignee: '', labels: [],
-    attachmentReferences: [], screenshotFindings: [], logsEvidence: '', suspectedCause: '',
-    confirmedFacts: [], assumptionsAndMissingInformation: { assumptions: [], missingInfo: [] },
-    suggestedTestsRegressionCoverage: [], timestamps: { createdAt: '', updatedAt: '' },
+    preconditions: [], testData: [], reproductionSteps: [], expectedResult: '', actualResult: '',
+    status: 'New', assignee: '', reporter: '', reportedDate: '', attachmentReferences: [], remarks: '',
   };
 }
 

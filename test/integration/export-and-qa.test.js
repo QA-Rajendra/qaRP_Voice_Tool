@@ -35,7 +35,7 @@ test('export API returns selected JSON/CSV fields and reports the direct PDF blo
     ...createEmptyReport(),
     bugTitle: '=HYPERLINK("https://example.invalid")',
     status: 'Open',
-    logsEvidence: 'line one\nline two',
+    remarks: 'line one\nline two',
   });
   const app = createApp({ repository });
 
@@ -47,7 +47,7 @@ test('export API returns selected JSON/CSV fields and reports the direct PDF blo
     assert.deepEqual(Object.keys(json), ['bugTitle', 'status']);
     assert.equal(json.bugTitle, report.bugTitle);
 
-    const csvResponse = await fetch(`${baseUrl}/api/bug-reports/${report.reportId}/export?format=csv&fields=bugTitle,logsEvidence`);
+    const csvResponse = await fetch(`${baseUrl}/api/bug-reports/${report.reportId}/export?format=csv&fields=bugTitle,remarks`);
     const csv = await csvResponse.text();
     assert.equal(csvResponse.status, 200);
     assert.match(csvResponse.headers.get('content-type'), /text\/csv/);

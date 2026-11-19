@@ -19,19 +19,34 @@ function generatedResult() {
   const report = {
     ...createEmptyReport(),
     bugTitle: 'Save button remains disabled after valid input.',
-    summary: 'The Save button does not become active after required information is entered.',
     bugType: 'Functional',
-    confirmedFacts: ['The Save button stays disabled after valid input.'],
-    assumptionsAndMissingInformation: { assumptions: ['Required fields are complete.'], missingInfo: ['Browser was not provided.'] },
   };
-  return {
-    report,
-    confirmedFacts: report.confirmedFacts,
-    assumptions: report.assumptionsAndMissingInformation.assumptions,
-    missingInfo: report.assumptionsAndMissingInformation.missingInfo,
-    clarifyingQuestions: ['Which browser did you use?'],
-  };
+  return { report };
 }
+
+test('English-description endpoint validates and returns a mocked Gemini translation', async () => {
+  const app = createApp({
+    generationService: {
+      convertToProfessionalEnglish: async () => ({ englishDescription: 'The login button does not respond.' }),
+      generateReport: async () => generatedResult(),
+    },
+  });
+
+  await withServer(app, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/bug-reports/english-description`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'लॉगिन बटन काम करत नाही.', language: 'mr' }),
+    });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).englishDescription, 'The login button does not respond.');
+
+    const invalid = await fetch(`${baseUrl}/api/bug-reports/english-description`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: '   ', language: 'mr' }),
+    });
+    assert.equal(invalid.status, 400);
+  });
+});
 
 test('generate endpoint returns mocked report data and never persists the draft', async () => {
   const database = await createMemoryDatabase();
@@ -39,9 +54,18 @@ test('generate endpoint returns mocked report data and never persists the draft'
   const app = createApp({ repository, generationService: { generateReport: async () => generatedResult() } });
 
   await withServer(app, async (baseUrl) => {
+    const unreviewed = await fetch(`${baseUrl}/api/bug-reports/generate`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ englishDescription: 'The Save button stays disabled after valid input.' }),
+    });
+    assert.equal(unreviewed.status, 400);
+
     const response = await fetch(`${baseUrl}/api/bug-reports/generate`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ description: 'The Save button stays disabled after valid input.' }),
+      body: JSON.stringify({
+        englishDescription: 'The Save button stays disabled after valid input.',
+        englishDescriptionReviewed: true,
+      }),
     });
     const body = await response.json();
     assert.equal(response.status, 200);

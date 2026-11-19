@@ -27,6 +27,8 @@ let recognizedVoiceText = '';
 let voiceConversation = [];
 let voiceReplyPending = false;
 let isSpeakingVoiceReply = false;
+let englishDescriptionReviewed = false;
+let isReportEditing = false;
 
 /** QA-assistant conversation history [{role, content}]. */
 let conversationMessages = [];
@@ -51,7 +53,14 @@ const description          = document.querySelector('#description');
 const charCount            = document.querySelector('#char-count');
 const languageSelect       = document.querySelector('#language');
 const clarifyButton        = document.querySelector('#clarify-button');
+const convertButton        = document.querySelector('#convert-button');
 const generateButton       = document.querySelector('#generate-button');
+const englishReview        = document.querySelector('#english-review');
+const originalDescriptionOutput = document.querySelector('#original-description-output');
+const englishDescriptionInput = document.querySelector('#english-description');
+const copyEnglishDescriptionButton = document.querySelector('#copy-english-description');
+const editEnglishDescriptionButton = document.querySelector('#edit-english-description');
+const confirmEnglishDescriptionButton = document.querySelector('#confirm-english-description');
 const statusTitle          = document.querySelector('#status-title');
 const statusMessage        = document.querySelector('#status-message');
 const micButton            = document.querySelector('#mic-button');
@@ -66,6 +75,7 @@ const answerInput          = document.querySelector('#follow-up-answer');
 const sendAnswerButton     = document.querySelector('#send-answer-button');
 const reportEditor         = document.querySelector('#report-editor');
 const reportEditorTitle    = document.querySelector('#report-editor-title');
+const reportFields         = document.querySelector('#report-fields');
 const reportFieldGrid      = document.querySelector('#report-field-grid');
 const reportStatus         = document.querySelector('#report-status');
 const saveConfirmation     = document.querySelector('#save-confirmation');
@@ -75,9 +85,11 @@ const confirmDeleteButton  = document.querySelector('#confirm-delete-button'); /
 const saveReportButton     = document.querySelector('#save-report-button');
 const copyReportButton     = document.querySelector('#copy-report-button');
 const resetReportButton    = document.querySelector('#reset-report-button');
+const editReportButton     = document.querySelector('#edit-report-button');
+const downloadTxtButton    = document.querySelector('#download-txt-button');
+const downloadPdfButton    = document.querySelector('#download-pdf-button');
+const regenerateReportButton = document.querySelector('#regenerate-report-button');
 const reportCopyPreview    = document.querySelector('#report-copy-preview');
-const analysisFacts        = document.querySelector('#analysis-facts');
-const analysisOpenItems    = document.querySelector('#analysis-open-items');
 const apiStatus            = document.querySelector('#api-status');
 const apiStatusLabel       = document.querySelector('#api-status-label');
 const apiStatusRefresh     = document.querySelector('#api-status-refresh');
@@ -109,6 +121,24 @@ function debounce(fn, delay) {
 function updateCharacterCount() {
   const n = description.value.length;
   charCount.textContent = `${n} ${n === 1 ? 'character' : 'characters'}`;
+}
+
+function invalidateEnglishReview() {
+  englishDescriptionReviewed = false;
+  englishReview.hidden = true;
+  originalDescriptionOutput.textContent = '';
+  englishDescriptionInput.value = '';
+  englishDescriptionInput.readOnly = true;
+  generateButton.disabled = true;
+  reportEditor.hidden = true;
+  reportFields.disabled = true;
+  currentReport = null;
+  isReportEditing = false;
+  editReportButton.textContent = 'Edit Report';
+  copyReportButton.disabled = true;
+  downloadTxtButton.disabled = true;
+  downloadPdfButton.disabled = true;
+  regenerateReportButton.disabled = true;
 }
 
 /**
@@ -175,17 +205,6 @@ function chooseVoiceLanguage() {
   if (languageSelect.value === 'mr') return 'mr-IN';
   if (languageSelect.value === 'en') return 'en-IN';
   return navigator.language || 'en-IN';
-}
-
-/**
- * Formats a date value for display.
- * @param {string|null|undefined} value
- * @returns {string}
- */
-function displayDate(value) {
-  if (!value) return '—';
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? value : d.toLocaleString();
 }
 
 /**
@@ -376,12 +395,8 @@ function labelForBadge(value) {
 function isBlankValue(field, value) {
   if (field === 'severity' || field === 'priority') return !value?.value;
   if (Array.isArray(value)) return value.length === 0;
-  if (field === 'assumptionsAndMissingInformation') {
-    return !value.assumptions.length && !value.missingInfo.length;
-  }
-  if (field === 'timestamps') return !value.createdAt && !value.updatedAt;
   if (value && typeof value === 'object') return false;
-  return typeof value !== 'string' || !value.trim();
+  return typeof value !== 'string' || !value.trim() || ['not provided', 'to be confirmed'].includes(value.trim().toLocaleLowerCase());
 }
 
 /**
@@ -394,7 +409,6 @@ function isBlankValue(field, value) {
 function classifyField(field, value) {
   if (field === 'severity' || field === 'priority') return 'suggested';
   if (isBlankValue(field, value)) return 'missing';
-  if (field === 'confirmedFacts') return 'confirmed';
   const values = Array.isArray(value) ? value : [value];
   const normalizedSource = sourceTextForBadges.toLocaleLowerCase();
   const isSupported = values.some((item) => {
@@ -505,7 +519,7 @@ function addNestedTextarea(container, field, labelText, value, onChange, rows = 
  */
 function createFieldCard(fieldInfo) {
   const { name, label, editor, options } = fieldInfo;
-  const wideEditors = ['textarea', 'list', 'assumptions', 'timestamps', 'attachments'];
+  const wideEditors = ['textarea', 'list', 'attachments'];
 
   const card = document.createElement('div');
   card.className = `report-field${wideEditors.includes(editor) ? ' wide' : ''}`;
@@ -544,22 +558,6 @@ function createFieldCard(fieldInfo) {
       currentReport[name] = { ...currentReport[name], reason: e.currentTarget.value, suggested: false };
       onFieldEdited(name);
     }, 2);
-  } else if (editor === 'assumptions') {
-    addNestedTextarea(card, name, 'AI assumptions', currentReport[name].assumptions.join('\n'), (e) => {
-      currentReport[name].assumptions = e.currentTarget.value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-      onFieldEdited(name);
-    });
-    addNestedTextarea(card, name, 'Missing information', currentReport[name].missingInfo.join('\n'), (e) => {
-      currentReport[name].missingInfo = e.currentTarget.value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-      onFieldEdited(name);
-    });
-  } else if (editor === 'timestamps') {
-    for (const prop of ['createdAt', 'updatedAt']) {
-      addNestedTextarea(card, name, prop === 'createdAt' ? 'Created at' : 'Updated at', currentReport[name][prop], (e) => {
-        currentReport[name][prop] = e.currentTarget.value;
-        onFieldEdited(name);
-      }, 1);
-    }
   } else if (editor === 'attachments') {
     const val = currentReport[name].map((a) => `${a.id} | ${a.name}`).join('\n');
     addControl(card, name, val, (e) => {
@@ -605,16 +603,6 @@ function formatReportValue(field, value) {
       `${i + 1}. ${item && typeof item === 'object' ? (item.name || item.id || Object.values(item).join(' | ')) : item}`,
     ).join('\n');
   }
-  if (field === 'assumptionsAndMissingInformation') {
-    const lines = [
-      ...(value.assumptions || []).map((s, i) => `Assumption ${i + 1}: ${s}`),
-      ...(value.missingInfo || []).map((s, i) => `Missing information ${i + 1}: ${s}`),
-    ];
-    return lines.length ? lines.join('\n') : 'Not provided';
-  }
-  if (field === 'timestamps') {
-    return `Created: ${displayDate(value.createdAt)}\nUpdated: ${displayDate(value.updatedAt)}`;
-  }
   if (typeof value === 'object') {
     return Object.entries(value).map(([k, v]) => `${k}: ${v || 'Not provided'}`).join('\n');
   }
@@ -627,28 +615,31 @@ function formatReportValue(field, value) {
  * @returns {string}
  */
 function formattedBugReport(report) {
-  const environment = [report.environment, report.operatingSystemPlatform].filter(Boolean).join(' | ') || 'Not provided';
   return [
-    '# BUG REPORT',
+    'COMPLETE BUG REPORT',
     '',
-    `Project Name: ${formatReportValue('productProject', report.productProject)}`,
-    `Bug ID: ${formatReportValue('reportId', report.reportId)}`,
-    `Module: ${formatReportValue('moduleComponent', report.moduleComponent)}`,
-    `Sub Module: ${formatReportValue('subModule', report.subModule)}`,
-    `Bug Title: ${formatReportValue('bugTitle', report.bugTitle)}`,
-    `Bug Type: ${formatReportValue('bugType', report.bugType)}`,
-    `Environment: ${environment}`,
-    `Build Version: ${formatReportValue('applicationBuildVersion', report.applicationBuildVersion)}`,
-    `Browser / Device: ${formatReportValue('browserDevice', report.browserDevice)}`,
-    `Severity: ${formatReportValue('severity', report.severity)}`,
-    `Priority: ${formatReportValue('priority', report.priority)}`,
-    'Steps to Reproduce:',
-    formatReportValue('reproductionSteps', report.reproductionSteps),
-    `Expected Result: ${formatReportValue('expectedResult', report.expectedResult)}`,
-    `Actual Result: ${formatReportValue('actualResult', report.actualResult)}`,
-    `Status: ${formatReportValue('status', report.status)}`,
-    `Reported By: ${formatReportValue('reporter', report.reporter)}`,
-    `Remarks: ${formatReportValue('remarks', report.remarks)}`,
+    `1. Project Name: ${formatReportValue('productProject', report.productProject)}`,
+    `2. Bug ID: ${formatReportValue('reportId', report.reportId)}`,
+    `3. Module: ${formatReportValue('moduleComponent', report.moduleComponent)}`,
+    `4. Sub Module: ${formatReportValue('subModule', report.subModule)}`,
+    `5. Bug Title: ${formatReportValue('bugTitle', report.bugTitle)}`,
+    `6. Bug Type: ${formatReportValue('bugType', report.bugType)}`,
+    `7. Environment: ${formatReportValue('environment', report.environment)}`,
+    `8. Build Version: ${formatReportValue('applicationBuildVersion', report.applicationBuildVersion)}`,
+    `9. Browser / Device: ${formatReportValue('browserDevice', report.browserDevice)}`,
+    `10. Severity: ${formatReportValue('severity', report.severity)}`,
+    `11. Priority: ${formatReportValue('priority', report.priority)}`,
+    `12. Preconditions:\n${formatReportValue('preconditions', report.preconditions)}`,
+    `13. Test Data:\n${formatReportValue('testData', report.testData)}`,
+    `14. Steps to Reproduce:\n${formatReportValue('reproductionSteps', report.reproductionSteps)}`,
+    `15. Expected Result: ${formatReportValue('expectedResult', report.expectedResult)}`,
+    `16. Actual Result: ${formatReportValue('actualResult', report.actualResult)}`,
+    `17. Status: ${formatReportValue('status', report.status)}`,
+    `18. Assigned To: ${formatReportValue('assignee', report.assignee)}`,
+    `19. Reported By: ${formatReportValue('reporter', report.reporter)}`,
+    `20. Reported Date: ${formatReportValue('reportedDate', report.reportedDate)}`,
+    `21. Attachment: Screenshot / Video / Logs\n${formatReportValue('attachmentReferences', report.attachmentReferences)}`,
+    `22. Remarks: ${formatReportValue('remarks', report.remarks)}`,
   ].join('\n');
 }
 
@@ -657,34 +648,6 @@ function formattedBugReport(report) {
  */
 function updateFormattedReportPreview() {
   if (currentReport) reportCopyPreview.textContent = formattedBugReport(currentReport);
-}
-
-// ---- Analysis panel ----
-
-/**
- * Renders the AI analysis lists (confirmed facts, assumptions, missing info).
- * @param {object} result  Response from /api/bug-reports/generate
- */
-function renderAnalysis(result) {
-  const aam = currentReport.assumptionsAndMissingInformation || { assumptions: [], missingInfo: [] };
-  const facts = Array.isArray(result.confirmedFacts) ? result.confirmedFacts : (currentReport.confirmedFacts || []);
-  const assumptions = Array.isArray(result.assumptions) ? result.assumptions : aam.assumptions;
-  const missing = Array.isArray(result.missingInfo) ? result.missingInfo : aam.missingInfo;
-
-  const fillList = (container, entries, emptyText) => {
-    container.replaceChildren();
-    for (const entry of entries.length ? entries : [emptyText]) {
-      const li = document.createElement('li');
-      li.textContent = entry;
-      container.append(li);
-    }
-  };
-
-  fillList(analysisFacts, facts, 'No confirmed facts recorded.');
-  fillList(analysisOpenItems, [
-    ...assumptions.map((s) => `Assumption: ${s}`),
-    ...missing.map((s) => `Missing information: ${s}`),
-  ], 'No assumptions or missing details recorded.');
 }
 
 // ---- Form schema ----
@@ -703,26 +666,30 @@ async function loadFormDefinition() {
 // ---- Render report form ----
 
 /**
- * Populates the report editor section with form fields and analysis.
+ * Populates the report editor section with the canonical 22 report fields.
  * @param {object} result    Response from /api/bug-reports/generate
  * @param {string} sourceText  Original description + clarifications (for badge scoring)
  */
 function renderReportForm(result, sourceText) {
   currentReport = result.report;
   sourceTextForBadges = sourceText;
-  renderAnalysis(result);
   updateFormattedReportPreview();
   reportFieldGrid.replaceChildren(...formDefinition.map(createFieldCard));
 
-  reportStatus.textContent = result.clarifyingQuestions.length
-    ? `Clarifying questions to consider: ${result.clarifyingQuestions.join(' ')}`
-    : 'Review the badges and edit any suggested values before saving.';
+  reportStatus.textContent = 'Review the 22 fields. Unknown information is marked Not provided or To be confirmed.';
 
-  saveReportButton.disabled = Boolean(currentReport.reportId);
-  saveReportButton.textContent = currentReport.reportId ? 'Save changes' : 'Save report';
+  isReportEditing = false;
+  reportFields.disabled = true;
+  editReportButton.textContent = 'Edit Report';
+  saveReportButton.disabled = false;
+  saveReportButton.textContent = 'Save report';
+  copyReportButton.disabled = false;
+  downloadTxtButton.disabled = false;
+  downloadPdfButton.disabled = false;
+  regenerateReportButton.disabled = false;
   reportEditorTitle.textContent = currentReport.reportId
-    ? `Edit report ${currentReport.reportId}`
-    : 'Bug report draft';
+    ? `Complete Bug Report ${currentReport.reportId}`
+    : 'Complete Bug Report';
 
   reportEditor.hidden = false;
   reportEditor.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -776,6 +743,7 @@ async function handleClarification({ initial = false } = {}) {
     return;
   }
 
+  invalidateEnglishReview();
   clarifyButton.disabled = true;
   sendAnswerButton.disabled = true;
   clarifyButton.textContent = 'Thinking…';
@@ -794,17 +762,12 @@ async function handleClarification({ initial = false } = {}) {
       messages: conversationMessages,
     });
 
-    if (result.cleanDescription) {
-      description.value = result.cleanDescription;
-      updateCharacterCount();
-    }
-
     if (result.readyToGenerate) {
       clarificationReady = true;
       answerForm.hidden = true;
-      appendChatMessage('assistant', 'The description is ready for report generation. You can still edit it above.');
+      appendChatMessage('assistant', 'The description is ready for English conversion. Review it above before generating a report.');
       statusTitle.textContent = 'Ready for the next step';
-      statusMessage.textContent = 'Review the clean description. You can generate a report now.';
+      statusMessage.textContent = 'Convert the original description to English, review it, then generate the report.';
       clarifyButton.textContent = 'Description reviewed';
       return;
     }
@@ -830,49 +793,128 @@ async function handleClarification({ initial = false } = {}) {
 
 // ---- Generate report ----
 
-/**
- * POSTs the description + clarifications to /api/bug-reports/generate and
- * renders the returned report in the editor.
- */
-async function generateReport() {
-  if (!description.value.trim()) {
+async function convertToProfessionalEnglish() {
+  const original = description.value.trim();
+  if (!original) {
     statusTitle.textContent = 'Add a bug description';
-    statusMessage.textContent = 'Describe what happened before generating a report.';
+    statusMessage.textContent = 'Enter a Marathi, English, or mixed-language description before converting.';
     description.focus();
     return;
   }
 
+  invalidateEnglishReview();
+  const request = {
+    description: original,
+    language: languageSelect.value,
+    clarifications: answeredClarifications(),
+  };
+  convertButton.disabled = true;
+  convertButton.textContent = 'Converting…';
+  statusTitle.textContent = 'Converting to professional English';
+  statusMessage.textContent = 'Gemini is preserving the reported behavior without adding missing details.';
+
+  try {
+    const result = await postJson('/api/bug-reports/english-description', request);
+    if (
+      description.value.trim() !== original
+      || languageSelect.value !== request.language
+      || JSON.stringify(answeredClarifications()) !== JSON.stringify(request.clarifications)
+    ) return;
+
+    originalDescriptionOutput.textContent = original;
+    englishDescriptionInput.value = result.englishDescription;
+    englishDescriptionInput.readOnly = true;
+    englishDescriptionReviewed = false;
+    editEnglishDescriptionButton.hidden = false;
+    confirmEnglishDescriptionButton.hidden = false;
+    englishReview.hidden = false;
+    generateButton.disabled = true;
+    statusTitle.textContent = 'English description ready for review';
+    statusMessage.textContent = 'Review the translation. Confirm it before generating the 22-field report.';
+    englishReview.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } catch (error) {
+    statusTitle.textContent = 'English conversion failed';
+    statusMessage.textContent = error.message;
+  } finally {
+    convertButton.disabled = false;
+    convertButton.textContent = 'Convert to Professional English';
+  }
+}
+
+function editEnglishDescription() {
+  if (englishReview.hidden) return;
+  englishDescriptionReviewed = false;
+  englishDescriptionInput.readOnly = false;
+  editEnglishDescriptionButton.hidden = true;
+  confirmEnglishDescriptionButton.hidden = false;
+  generateButton.disabled = true;
+  englishDescriptionInput.focus();
+}
+
+function confirmEnglishDescription() {
+  const reviewedDescription = englishDescriptionInput.value.trim();
+  if (!reviewedDescription) {
+    statusTitle.textContent = 'English description is required';
+    statusMessage.textContent = 'Enter or restore the professional English description before confirming.';
+    englishDescriptionInput.focus();
+    return;
+  }
+  englishDescriptionInput.value = reviewedDescription;
+  englishDescriptionInput.readOnly = true;
+  englishDescriptionReviewed = true;
+  editEnglishDescriptionButton.hidden = false;
+  confirmEnglishDescriptionButton.hidden = true;
+  generateButton.disabled = false;
+  statusTitle.textContent = 'English description confirmed';
+  statusMessage.textContent = 'You can now generate the report. Nothing is saved until you confirm Save.';
+}
+
+async function copyEnglishDescription() {
+  if (!englishDescriptionInput.value.trim()) return;
+  try {
+    await navigator.clipboard.writeText(englishDescriptionInput.value.trim());
+    statusMessage.textContent = 'Professional English description copied.';
+  } catch (error) {
+    statusMessage.textContent = 'Could not copy the English description: ' + error.message;
+  }
+}
+
+/**
+ * Sends only the explicitly reviewed English description to report generation.
+ */
+async function generateReport() {
+  if (!englishDescriptionReviewed || !englishDescriptionInput.value.trim()) {
+    statusTitle.textContent = 'Review the English description first';
+    statusMessage.textContent = 'Convert the original description and confirm the English version before generating a report.';
+    convertButton.focus();
+    return;
+  }
+
+  const reviewedDescription = englishDescriptionInput.value.trim();
   generateButton.disabled = true;
   generateButton.textContent = 'Generating…';
   statusTitle.textContent = 'Building your draft';
-  statusMessage.textContent = 'The AI is separating stated facts from suggestions.';
+  statusMessage.textContent = 'Gemini is generating the exact 22-field report from your reviewed English description.';
   reportStatus.textContent = '';
 
   try {
     if (!formDefinition.length) await loadFormDefinition();
     const request = {
-      description: description.value.trim(),
-      language: languageSelect.value,
-      clarifications: answeredClarifications(),
-      researchContext: '',
+      englishDescription: reviewedDescription,
+      englishDescriptionReviewed: true,
       attachmentIds: [],
-      screenshotFindings: [],
     };
     const result = await postJson('/api/bug-reports/generate', request);
-    const sourceText = [
-      request.description,
-      ...request.clarifications.map((c) => `${c.question} ${c.answer}`),
-    ].join(' ');
-    renderReportForm(result, sourceText);
+    if (!englishDescriptionReviewed || englishDescriptionInput.value.trim() !== reviewedDescription) return;
+    renderReportForm(result, reviewedDescription);
     statusTitle.textContent = 'Draft ready for review';
     statusMessage.textContent = 'Nothing has been saved. Review and edit the report before confirming Save.';
-    generateButton.textContent = 'Generate again';
   } catch (err) {
     statusTitle.textContent = 'Report generation failed';
     statusMessage.textContent = err.message;
-    generateButton.textContent = 'Try generation again';
   } finally {
-    generateButton.disabled = false;
+    generateButton.disabled = !englishDescriptionReviewed;
+    generateButton.textContent = 'Generate Professional Bug Report';
   }
 }
 
@@ -903,6 +945,11 @@ async function saveReport() {
     currentReport = result.report;
     saved = true;
     copyReportButton.disabled = false;
+    downloadTxtButton.disabled = false;
+    downloadPdfButton.disabled = false;
+    reportFields.disabled = true;
+    isReportEditing = false;
+    editReportButton.textContent = 'Edit Report';
     updateFormattedReportPreview();
     reportStatus.textContent = `${isEdit ? 'Updated' : 'Saved'} ${result.report.reportId}.`;
     statusTitle.textContent = isEdit ? 'Report updated' : 'Report saved';
@@ -921,20 +968,47 @@ async function saveReport() {
 // ---- Copy report ----
 
 /**
- * Loads the saved report and copies its formatted text to the clipboard.
+ * Copies the current report draft or saved report to the clipboard.
  */
 async function copyConfirmedReport() {
-  if (!currentReport?.reportId) return;
-  reportStatus.textContent = 'Loading the last saved report to copy…';
+  if (!currentReport) return;
   try {
-    const response = await fetch(`/api/bug-reports/${encodeURIComponent(currentReport.reportId)}`);
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error?.message || 'Could not load the saved report.');
-    await navigator.clipboard.writeText(formattedBugReport(result.report));
-    reportStatus.textContent = 'Saved report copied to the clipboard.';
-  } catch (_) {
-    reportStatus.textContent = 'Clipboard access is unavailable. Select the preview and copy manually.';
+    await navigator.clipboard.writeText(formattedBugReport(currentReport));
+    reportStatus.textContent = 'Complete bug report copied to the clipboard.';
+  } catch (error) {
+    reportStatus.textContent = 'Could not copy the report: ' + error.message;
   }
+}
+
+function toggleReportEditing() {
+  if (!currentReport) return;
+  isReportEditing = !isReportEditing;
+  reportFields.disabled = !isReportEditing;
+  editReportButton.textContent = isReportEditing ? 'Finish Editing' : 'Edit Report';
+}
+
+function downloadReportAsTxt() {
+  if (!currentReport) return;
+  const filenameId = (currentReport.reportId || 'bug-report').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const url = URL.createObjectURL(new Blob([formattedBugReport(currentReport)], { type: 'text/plain;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${filenameId}.txt`;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  reportStatus.textContent = 'Bug report downloaded as TXT.';
+}
+
+function downloadReportAsPdf() {
+  if (!currentReport) return;
+  document.body.classList.add('printing-report');
+  const cleanPrintMode = () => {
+    document.body.classList.remove('printing-report');
+    window.removeEventListener('afterprint', cleanPrintMode);
+  };
+  window.addEventListener('afterprint', cleanPrintMode);
+  window.print();
+  reportStatus.textContent = 'Choose Save as PDF in the browser print dialog.';
 }
 
 // ---- Reset workspace ----
@@ -945,6 +1019,7 @@ async function copyConfirmedReport() {
 function resetWorkspace() {
   description.value = '';
   answerInput.value = '';
+  invalidateEnglishReview();
   voiceConversation = [];
   voiceTranscript.textContent = 'Your editable voice transcript will appear here.';
   voiceResponse.hidden = true;
@@ -957,6 +1032,9 @@ function resetWorkspace() {
   saveReportButton.disabled = false;
   saveReportButton.textContent = 'Save report';
   copyReportButton.disabled = true;
+  downloadTxtButton.disabled = true;
+  downloadPdfButton.disabled = true;
+  regenerateReportButton.disabled = true;
   reportEditorTitle.textContent = 'Bug report draft';
 
   chatThread.replaceChildren();
@@ -1008,6 +1086,9 @@ async function checkGeminiStatus() {
    ============================================================ */
 
 // --- Description textarea ---
+description.addEventListener('input', invalidateEnglishReview);
+answerInput.addEventListener('input', invalidateEnglishReview);
+languageSelect.addEventListener('change', invalidateEnglishReview);
 description.addEventListener('input', debounce(() => {
   updateCharacterCount();
   voiceConversation = [];
@@ -1024,7 +1105,7 @@ description.addEventListener('input', debounce(() => {
     clarifyButton.disabled = false;
     clarifyButton.textContent = 'Ask follow-up questions';
     statusTitle.textContent = 'Description changed';
-    statusMessage.textContent = 'You can ask for clarification again or generate a report directly.';
+    statusMessage.textContent = 'You can ask for clarification again or convert the updated description to English.';
   }
 }, 150));
 
@@ -1033,8 +1114,18 @@ clarifyButton.addEventListener('click', () =>
   handleClarification({ initial: conversationMessages.length === 0 }),
 );
 
-// --- Generate button ---
+// --- English conversion and review ---
+convertButton.addEventListener('click', convertToProfessionalEnglish);
+copyEnglishDescriptionButton.addEventListener('click', copyEnglishDescription);
+editEnglishDescriptionButton.addEventListener('click', editEnglishDescription);
+confirmEnglishDescriptionButton.addEventListener('click', confirmEnglishDescription);
+
+// --- Generate and review report ---
 generateButton.addEventListener('click', generateReport);
+regenerateReportButton.addEventListener('click', generateReport);
+editReportButton.addEventListener('click', toggleReportEditing);
+downloadTxtButton.addEventListener('click', downloadReportAsTxt);
+downloadPdfButton.addEventListener('click', downloadReportAsPdf);
 
 // --- Clarification answer form ---
 answerForm.addEventListener('submit', async (event) => {

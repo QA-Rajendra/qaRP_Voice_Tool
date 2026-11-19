@@ -7,10 +7,10 @@ test('CSV export prefixes formula-like values and quotes multiline cells', () =>
   const report = {
     ...createEmptyReport(),
     bugTitle: '=HYPERLINK("https://example.invalid")',
-    logsEvidence: 'first line, with comma\nsecond "line"',
-    labels: ['+cmd', '-1+1', '@SUM(A1:A2)'],
+    remarks: 'first line, with comma\nsecond "line"',
+    testData: ['+cmd', '-1+1', '@SUM(A1:A2)'],
   };
-  const csv = reportToCsv(report, ['bugTitle', 'logsEvidence', 'labels']);
+  const csv = reportToCsv(report, ['bugTitle', 'remarks', 'testData']);
   assert.match(csv, /"'=HYPERLINK\(""https:\/\/example\.invalid""\)"/);
   assert.match(csv, /"first line, with comma\r?\nsecond ""line"""/);
   assert.match(csv, /"'\+cmd; -1\+1; @SUM\(A1:A2\)"/);

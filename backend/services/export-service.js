@@ -13,13 +13,6 @@ function valueForCsv(field, value) {
     const reason = value.reason ? `: ${value.reason}` : '';
     return `${value.value || 'Not provided'}${suggested}${reason}`;
   }
-  if (field === 'assumptionsAndMissingInformation') {
-    return [
-      value.assumptions?.length ? `Assumptions: ${value.assumptions.join('; ')}` : '',
-      value.missingInfo?.length ? `Missing information: ${value.missingInfo.join('; ')}` : '',
-    ].filter(Boolean).join(' | ');
-  }
-  if (field === 'timestamps') return `Created: ${value.createdAt || ''}; Updated: ${value.updatedAt || ''}`;
   if (Array.isArray(value)) {
     return value.map((item) => (item && typeof item === 'object' ? Object.values(item).join(' — ') : String(item))).join('; ');
   }

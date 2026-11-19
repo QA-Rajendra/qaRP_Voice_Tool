@@ -8,7 +8,7 @@ function up(database) {
   });
   database.exec(`CREATE TABLE IF NOT EXISTS bug_reports (${columns.join(', ')})`);
   database.exec('CREATE INDEX IF NOT EXISTS idx_bug_reports_status ON bug_reports(status)');
-  database.exec("CREATE INDEX IF NOT EXISTS idx_bug_reports_created_at ON bug_reports(json_extract(timestamps, '$.createdAt') DESC)");
+  database.exec('CREATE INDEX IF NOT EXISTS idx_bug_reports_reported_date ON bug_reports(reported_date DESC)');
 }
 
 module.exports = { up };

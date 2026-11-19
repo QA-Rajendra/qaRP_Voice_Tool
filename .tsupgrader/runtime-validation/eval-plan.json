@@ -25,9 +25,9 @@
       "startCommand": "npm.cmd",
       "startArgs": ["start"],
       "env": {
-        "PORT": "43157"
+        "PORT": "44291"
       },
-      "url": "http://127.0.0.1:43157/api/health",
+      "url": "http://127.0.0.1:44291/api/health",
       "verificationMethod": "http-status",
       "expected": "200",
       "timeoutSeconds": 120
@@ -38,9 +38,9 @@
       "startCommand": "npm.cmd",
       "startArgs": ["start"],
       "env": {
-        "PORT": "43157"
+        "PORT": "44291"
       },
-      "url": "http://127.0.0.1:43157/api/bug-reports/schema",
+      "url": "http://127.0.0.1:44291/api/bug-reports/schema",
       "verificationMethod": "http-status",
       "expected": "200",
       "timeoutSeconds": 120

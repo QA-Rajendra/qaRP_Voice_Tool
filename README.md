@@ -18,14 +18,13 @@ For local voice replies, install [Ollama](https://ollama.com/download) and run `
 
 ## Try the workflow
 
-1. Type or dictate a description in Marathi or English. Typed input always works. If the browser does not support speech recognition, the microphone control explains that and the text field stays available.
-2. Use **Ask follow-up questions** if you want help filling in missing details, then choose **Generate report**.
-3. Review the 34 fields, edit suggestions, and choose **Save report**. A draft is not stored until you confirm.
-4. Find saved reports in **Bug report library**. Search, filter by status/severity, open and edit, or choose Delete and confirm.
-5. For a saved report, choose which fields to export, then download JSON or CSV. **Print / Save as PDF** opens a print-ready copy of the last saved report; choose **Save as PDF** in the browser's print dialog.
-6. In **QA suggestions**, choose **Generate QA suggestions**. Edit or copy the suggestions, and use **Add test cases to report** to stage them in the report. Choose **Save changes** to store the edits.
+1. Type or dictate a description in Marathi, English, or a mix of both. Typed input always works. If the browser does not support speech recognition, the microphone control explains that and the text field stays available.
+2. Optionally use **Ask follow-up questions** to clarify missing details, then choose **Convert to Professional English**.
+3. Review the original and English descriptions. You can edit or copy the English version, but you must explicitly confirm it before report generation is enabled.
+4. Choose **Generate Professional Bug Report**. Review and edit the exact 22-field report; unknown details are marked **Not provided** or **To be confirmed** instead of being invented.
+5. Copy the full report, download it as TXT, or use **Download as PDF** to open the browser print dialog and choose **Save as PDF**. Choose **Save report** and confirm to store the report in local SQLite. **Clear All** resets the current workflow; **Regenerate Report** runs generation again from the reviewed English description.
 
-The report form and export picker use the same field definitions in `backend/schemas/bug-report.schema.js`. CSV export prefixes formula-like values and quotes commas, quotes, and line breaks.
+The report form and export API use the same field definitions in `backend/schemas/bug-report.schema.js`. CSV export prefixes formula-like values and quotes commas, quotes, and line breaks.
 
 ## Export and PDF status
 
@@ -61,11 +60,13 @@ SQLite data is saved under the ignored `data/` folder. This is a single-user loc
 
 ## Tests and manual browser checklist
 
-`npm.cmd test` covers schema validation, mocked AI output, repository and API workflows, CSV safety, rate limits, invalid configuration, oversized JSON/image requests, and credential absence from served assets. `test/e2e/user-workflow.test.js` covers the end-to-end HTTP workflow, and `test/e2e/browser-ui.test.js` exercises typing Marathi, clarifying, generating, editing/saving, searching, downloading exports, printing, QA suggestions, and rejecting a bad screenshot in Chromium. Both use mocked AI services.
+`npm.cmd test` covers schema validation, mocked AI output, repository and API workflows, CSV safety, rate limits, invalid configuration, oversized JSON/image requests, and credential absence from served assets. `test/e2e/user-workflow.test.js` covers the end-to-end HTTP workflow, and `test/e2e/browser-ui.test.js` exercises Marathi-to-English conversion, the review gate, report generation and editing, report downloads, regeneration, and clearing the workflow in Chromium. Both use mocked AI services.
 
 For a visual check in your browser, also try these steps:
 
-- Generate from typed text; confirm the report editor and field badges appear.
+- Convert typed Marathi or mixed-language text; review and confirm the English description before generating the report.
+- Check that the generated report contains exactly 22 fields and that missing information is marked rather than invented.
+- Edit the report, copy it, download TXT, and use the PDF print flow.
 - Start browser voice input with Ollama running; verify the transcript is editable and the local reply is spoken. Browser speech recognition may require an internet connection.
 - Ask a clarification question, answer it, generate, edit a field, and confirm Save.
 - Upload a valid image and an invalid or oversized image; verify the error is visible.

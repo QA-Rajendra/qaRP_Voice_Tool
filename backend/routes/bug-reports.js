@@ -3,7 +3,10 @@ const { z } = require('zod');
 const { validate } = require('../middleware/validate');
 const { createRateLimiter } = require('../middleware/rate-limit');
 const { BugReportSchema, FIELD_DEFINITIONS, createEmptyReport, getFormDefinition, STATUSES, SEVERITIES } = require('../schemas/bug-report.schema');
-const { GenerateRequestSchema } = require('../schemas/generation.schema');
+const {
+  EnglishDescriptionRequestSchema,
+  GenerateRequestSchema,
+} = require('../schemas/generation.schema');
 const { getDatabase } = require('../db/connection');
 const { createRepository } = require('../db/bug-report-repository');
 const { createBugReportService } = require('../services/bug-report-service');
@@ -104,6 +107,15 @@ function createBugReportsRouter({
     validate(GenerateRequestSchema),
     async (request, response) => {
       const result = await generationService.generateReport(request.body);
+      response.json(result);
+    },
+  );
+
+  router.post('/english-description',
+    createRateLimiter({ windowMs: 5 * 60_000, max: 8, message: 'Too many conversion requests. Please wait a few minutes.' }),
+    validate(EnglishDescriptionRequestSchema),
+    async (request, response) => {
+      const result = await generationService.convertToProfessionalEnglish(request.body);
       response.json(result);
     },
   );

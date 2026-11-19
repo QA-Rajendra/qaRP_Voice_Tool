@@ -10,6 +10,7 @@ function up(database) {
   for (const [name, definition] of NEW_COLUMNS) {
     if (!existing.has(name)) database.exec(`ALTER TABLE bug_reports ADD COLUMN "${name}" ${definition}`);
   }
+  database.exec('CREATE INDEX IF NOT EXISTS idx_bug_reports_reported_date ON bug_reports(reported_date DESC)');
 }
 
 module.exports = { up };

@@ -78,7 +78,7 @@ test('report management API lists, filters, paginates, opens, updates, and delet
     assert.equal(updateResponse.status, 200);
     assert.equal(update.report.bugTitle, 'Login action remains inactive');
     assert.equal(update.report.status, 'In Progress');
-    assert.equal(update.report.timestamps.createdAt, detail.report.timestamps.createdAt);
+    assert.equal(update.report.reportedDate, detail.report.reportedDate);
 
     const missingUpdate = await fetch(`${baseUrl}/api/bug-reports/missing-id`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(changedReport),
