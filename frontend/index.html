@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f4f6fb">
+    <title>QARP Voice Tool</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="QARP Voice Tool home">
+          <span class="brand-mark" aria-hidden="true">Q</span>
+          <span><strong>QARP Voice Tool</strong></span>
+        </a>
+        <div class="topbar-status-group">
+          <div class="local-badge"><span aria-hidden="true"></span> Local workspace</div>
+          <form class="api-key-entry" id="api-key-form" autocomplete="off">
+            <label class="visually-hidden" for="api-key-input">Gemini API key</label>
+            <input id="api-key-input" name="apiKey" type="password" placeholder="Paste Gemini API key" autocomplete="new-password" spellcheck="false" maxlength="500">
+            <button class="api-key-button" id="api-key-check" type="submit">Check &amp; use</button>
+          </form>
+          <div class="api-status" id="api-status" data-state="checking" role="status" aria-live="polite">
+            <span class="api-status-dot" aria-hidden="true"></span>
+            <span id="api-status-label">Checking Gemini…</span>
+            <button class="api-status-refresh" id="api-status-refresh" type="button" aria-label="Check Gemini API connection" title="Check Gemini API connection">↻</button>
+          </div>
+        </div>
+      </header>
+
+      <div class="app-layout">
+        <aside class="app-sidebar" aria-label="Application navigation">
+          <p class="sidebar-heading">WORKSPACE</p>
+          <nav class="sidebar-nav">
+            <a href="#dashboard-overview">Dashboard</a>
+            <a href="#intake-title">AI Voice Assistant</a>
+            <a href="#intake-title">Bug Generator</a>
+            <a href="#bug-list-title">Bug Reports</a>
+            <a href="#test-cases-section">Test Cases</a>
+            <a href="#validation-rules-section">Validation Rules</a>
+            <a href="#research-title">AI Research</a>
+            <a href="#analytics-section">Reports &amp; Analytics</a>
+            <a href="#export-center-section">Export Center</a>
+            <a href="#settings-section">Settings</a>
+          </nav>
+          <p class="sidebar-note">AI requests send selected content to Google Gemini. Saved reports stay in local SQLite.</p>
+        </aside>
+
+      <main class="dashboard">
+        <section class="welcome" id="dashboard-overview" aria-labelledby="page-title">
+          <div>
+            <p class="eyebrow">BUG REPORT STUDIO</p>
+            <h1 id="page-title">Turn observations into clear bug reports.</h1>
+            <p class="subtitle">Describe what happened in English or Marathi. Review every detail before saving.</p>
+          </div>
+          <div class="step-indicator"><span>01</span> Describe the issue <i></i><span class="muted-step">02 Review report</span></div>
+        </section>
+
+        <section class="metrics-grid" id="analytics-section" aria-label="Reports and analytics">
+          <article class="metric-card"><span>Total Bugs</span><strong id="metric-total-bugs">—</strong></article>
+          <article class="metric-card"><span>Open Bugs</span><strong id="metric-open-bugs">—</strong></article>
+          <article class="metric-card"><span>Critical Bugs</span><strong id="metric-critical-bugs">—</strong></article>
+          <article class="metric-card"><span>Resolved Bugs</span><strong id="metric-resolved-bugs">—</strong></article>
+          <article class="metric-card"><span>Generated Reports</span><strong id="metric-generated-reports">—</strong></article>
+          <article class="metric-card"><span>AI Analysis History</span><strong id="metric-ai-history">—</strong><small>Saved locally</small></article>
+        </section>
+
+        <div class="workspace-grid">
+          <section class="panel intake-panel" aria-labelledby="intake-title">
+            <div class="panel-heading">
+              <div class="heading-icon purple" aria-hidden="true">✳</div>
+              <div><h2 id="intake-title">Describe the bug</h2><p>Start with what you saw and what you expected.</p></div>
+            </div>
+            <label class="field-label" for="description">Bug description <span>Required</span></label>
+            <textarea id="description" rows="8" placeholder="For example: After entering valid credentials on the login page, clicking Login does nothing…"></textarea>
+            <div class="input-meta"><span id="char-count">0 characters</span><label for="language">Browser fallback language
+              <select id="language"><option value="auto">Auto detect</option><option value="mr">मराठी</option><option value="en">English</option></select>
+            </label></div>
+            <div class="intake-actions">
+              <button class="button button-secondary" id="clarify-button" type="button">Ask follow-up questions</button>
+              <button class="button button-primary" id="generate-button" type="button">Generate report</button>
+              <button class="button button-mic" id="mic-button" type="button" aria-label="Start Gemini Live voice"><span aria-hidden="true">●</span> Start voice assistant</button>
+              <button class="button button-secondary browser-voice-button" id="browser-voice-button" type="button" hidden>Use browser speech input</button>
+            </div>
+            <p class="voice-status" id="voice-status" role="status" aria-live="polite">Gemini Live voice is ready to connect.</p>
+            <div class="live-voice-output" aria-live="polite">
+              <p id="voice-language-indicator" class="voice-language-indicator">Language: detected while you speak</p>
+              <p id="live-transcript" class="live-transcript">Your editable voice transcript will appear here.</p>
+              <p id="live-response" class="live-response" hidden></p>
+            </div>
+            <section class="clarification-box" id="clarification-panel" aria-labelledby="clarification-title" hidden>
+              <h3 id="clarification-title">Clarifying questions</h3>
+              <div class="chat-thread" id="chat-thread" role="log" aria-live="polite" aria-relevant="additions text"></div>
+              <form id="answer-form" hidden>
+                <label class="field-label" for="follow-up-answer">Your answer</label>
+                <textarea id="follow-up-answer" rows="3" placeholder="Type a reply or use voice input above"></textarea>
+                <button class="button button-primary answer-button" id="send-answer-button" type="submit">Send answer</button>
+              </form>
+            </section>
+            <p class="privacy-note"><span aria-hidden="true">▣</span> Nothing is saved until you choose Save.</p>
+          </section>
+
+          <aside class="side-column">
+            <section class="panel side-panel" aria-labelledby="quality-title">
+              <div class="panel-heading compact">
+                <div class="heading-icon mint" aria-hidden="true">✓</div>
+                <div><h2 id="quality-title">Built for reliable QA</h2><p>You're always in control of the final report.</p></div>
+              </div>
+              <ul class="benefit-list">
+                <li><span>01</span><div><strong>Facts stay separate</strong><small>AI suggestions are clearly marked.</small></div></li>
+                <li><span>02</span><div><strong>Review before saving</strong><small>Edit every field before it is stored.</small></div></li>
+                <li><span>03</span><div><strong>Local report storage</strong><small>Reports stay in this local app. AI requests send the selected text or image to Google Gemini.</small></div></li>
+              </ul>
+            </section>
+            <section class="panel side-panel" aria-labelledby="research-title">
+              <div class="panel-heading compact">
+                <div class="heading-icon purple" aria-hidden="true">⌕</div>
+                <div><h2 id="research-title">Technical research</h2><p>Search only when you choose Research.</p></div>
+              </div>
+              <label class="field-label" for="research-query">Question</label>
+              <textarea id="research-query" rows="3" placeholder="For example: Which browsers support this feature?"></textarea>
+              <button class="button button-secondary research-button" id="research-button" type="button">Research</button>
+              <p class="research-status" id="research-status" role="status" aria-live="polite"></p>
+              <div class="research-answer" id="research-answer" aria-live="polite"></div>
+              <ul class="research-sources" id="research-sources"></ul>
+            </section>
+            <section class="panel side-panel" aria-labelledby="screenshot-title">
+              <div class="panel-heading compact">
+                <div class="heading-icon mint" aria-hidden="true">▧</div>
+                <div><h2 id="screenshot-title">Screenshot evidence</h2><p>AI findings describe visible details only.</p></div>
+              </div>
+              <label class="image-drop-zone" id="image-drop-zone" for="screenshot-file">
+                <span>Choose or drop an image</span><small id="screenshot-size-limit">PNG, JPEG, WebP, or GIF · loading size limit…</small>
+              </label>
+              <input class="visually-hidden" id="screenshot-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+              <figure class="image-preview" id="image-preview" hidden>
+                <img id="screenshot-preview" alt="Selected screenshot preview">
+                <figcaption id="screenshot-filename"></figcaption>
+                <button class="button button-mic" id="remove-screenshot-button" type="button">Remove image</button>
+              </figure>
+              <progress class="upload-progress" id="upload-progress" max="100" value="0" hidden></progress>
+              <p class="screenshot-status" id="screenshot-status" role="status" aria-live="polite"></p>
+              <button class="button button-secondary" id="analyze-screenshot-button" type="button" hidden>Analyze screenshot</button>
+              <ul class="screenshot-findings" id="screenshot-findings"></ul>
+            </section>
+            <section class="panel status-panel" aria-live="polite" aria-labelledby="status-title">
+              <div class="status-icon" aria-hidden="true">i</div><div><h2 id="status-title">Ready when you are</h2><p id="status-message">Type a description or use voice input. Nothing is saved yet.</p></div>
+            </section>
+          </aside>
+        </div>
+
+        <section class="panel bug-list-panel" id="bug-reports-section" aria-labelledby="bug-list-title">
+          <div class="bug-list-heading">
+            <div><p class="eyebrow">LOCAL REPORTS</p><h2 id="bug-list-title">Bug report library</h2><p class="subtitle">Search, filter, open, edit, or remove saved reports.</p></div>
+            <button class="button button-mic" id="refresh-reports-button" type="button">Refresh</button>
+          </div>
+          <div class="report-filters">
+            <label for="report-search">Search<input id="report-search" type="search" placeholder="Title, component, evidence..." maxlength="200"></label>
+            <label for="status-filter">Status<select id="status-filter"><option value="">All statuses</option><option>New</option><option>Open</option><option>In Progress</option><option>Fixed</option><option>Verified</option><option>Closed</option><option>Rejected</option></select></label>
+            <label for="severity-filter">Severity<select id="severity-filter"><option value="">All severities</option><option>Critical</option><option>Major</option><option>Minor</option><option>Trivial</option></select></label>
+            <button class="button button-secondary" id="search-reports-button" type="button">Search</button>
+          </div>
+          <p class="bug-list-status" id="bug-list-status" role="status" aria-live="polite">Loading saved reports...</p>
+          <div class="table-scroll">
+            <table class="bug-report-table">
+              <thead><tr><th scope="col">Report ID</th><th scope="col">Title</th><th scope="col">Status</th><th scope="col">Severity</th><th scope="col">Updated</th><th scope="col">Actions</th></tr></thead>
+              <tbody id="bug-report-table-body"></tbody>
+            </table>
+          </div>
+          <div class="pagination-controls">
+            <button class="button button-mic" id="previous-page-button" type="button">Previous</button>
+            <span id="page-indicator">Page 1</span>
+            <button class="button button-mic" id="next-page-button" type="button">Next</button>
+          </div>
+        </section>
+
+        <section class="panel workspace-info-panel" id="export-center-section" aria-labelledby="export-center-title">
+          <div><p class="eyebrow">EXPORT CENTER</p><h2 id="export-center-title">Export a saved report</h2><p class="subtitle">Select a report from the current library results, then open it to choose fields and export JSON, CSV, or a print-ready PDF view.</p></div>
+          <div class="export-center-controls">
+            <label for="export-center-report">Saved report<select id="export-center-report"><option value="">Search or refresh the report library first</option></select></label>
+            <button class="button button-secondary" id="open-export-center-button" type="button" disabled>Open export tools</button>
+          </div>
+          <p class="report-status" id="export-center-status" role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="panel report-editor" id="report-editor" aria-labelledby="report-editor-title" hidden>
+          <div class="report-editor-heading">
+            <div><p class="eyebrow">REVIEW BEFORE SAVING</p><h2 id="report-editor-title">Bug report draft</h2><p class="subtitle">Edit any field. AI suggestions remain marked until you confirm them by editing.</p></div>
+            <div class="badge-legend" aria-label="Field badge legend"><span class="badge confirmed">Confirmed</span><span class="badge suggested">AI suggested</span><span class="badge missing">Missing</span></div>
+          </div>
+          <section class="analysis-panel" aria-labelledby="analysis-title">
+            <h3 id="analysis-title">AI bug analysis</h3>
+            <div class="analysis-columns">
+              <div><h4>Confirmed facts</h4><ul id="analysis-facts"></ul></div>
+              <div><h4>Assumptions and missing information</h4><ul id="analysis-open-items"></ul></div>
+            </div>
+          </section>
+          <form id="report-form">
+            <div class="report-field-grid" id="report-field-grid"></div>
+            <div class="report-actions">
+              <button class="button button-primary" id="save-report-button" type="button">Save report</button>
+              <button class="button button-secondary" id="copy-report-button" type="button">Copy report</button>
+              <button class="button button-mic" id="reset-report-button" type="button">Reset</button>
+            </div>
+            <details class="formatted-report-preview">
+              <summary>Preview formatted report</summary>
+              <pre id="report-copy-preview"></pre>
+            </details>
+          </form>
+          <p class="report-status" id="report-status" role="status" aria-live="polite"></p>
+
+          <section class="qa-export-panel" id="qa-export-panel" aria-labelledby="export-title" hidden>
+            <div class="qa-export-section">
+              <p class="eyebrow">SAVED REPORT</p>
+              <h3 id="export-title">Export report</h3>
+              <p class="subtitle">Exports use the last saved version of this report.</p>
+              <details class="export-fields-details">
+                <summary>Choose fields to export <span id="export-selected-count"></span></summary>
+                <fieldset class="export-field-options" id="export-field-options"><legend>Included fields</legend></fieldset>
+              </details>
+              <div class="report-actions">
+                <button class="button button-secondary" id="export-json-button" type="button">Download JSON</button>
+                <button class="button button-secondary" id="export-csv-button" type="button">Download CSV</button>
+                <button class="button button-mic" id="print-report-button" type="button">Print / Save as PDF</button>
+              </div>
+              <p class="report-status" id="export-status" role="status" aria-live="polite"></p>
+            </div>
+            <div class="qa-export-section">
+              <p class="eyebrow">OPTIONAL AI HELP</p>
+              <h3 id="qa-suggestions-title">QA suggestions</h3>
+              <p class="subtitle">Reproduction steps and test scenarios are AI suggestions. Edit or copy them before applying.</p>
+              <div class="report-actions">
+                <button class="button button-primary" id="generate-qa-button" type="button">Generate QA suggestions</button>
+                <button class="button button-secondary" id="copy-qa-button" type="button" disabled>Copy all suggestions</button>
+                <button class="button button-mic" id="apply-qa-button" type="button" disabled>Add test cases to report</button>
+              </div>
+              <p class="report-status" id="qa-status" role="status" aria-live="polite"></p>
+              <div class="qa-suggestions-editor" id="qa-suggestions-editor"></div>
+            </div>
+          </section>
+        </section>
+
+        <section class="panel workspace-info-panel" id="test-cases-section" aria-labelledby="test-cases-title">
+          <div><p class="eyebrow">TEST CASES</p><h2 id="test-cases-title">Scenario and regression suggestions</h2><p class="subtitle">Open a saved report to generate editable positive, negative, boundary, reproduction, and regression suggestions.</p></div>
+          <a class="button button-secondary nav-button" href="#bug-list-title">Choose a saved report</a>
+        </section>
+
+        <section class="panel workspace-info-panel" id="validation-rules-section" aria-labelledby="validation-rules-title">
+          <div><p class="eyebrow">VALIDATION RULES</p><h2 id="validation-rules-title">Report quality checks</h2><ul class="validation-rules-list"><li>Required intake text must be present before generating.</li><li>Report fields and enums are checked against the shared backend schema.</li><li>Unknown environment, build, platform, browser, and dates stay blank unless supplied.</li><li>Severity and priority remain labelled as AI suggestions until you edit them.</li><li>A draft is not stored until you confirm Save.</li></ul></div>
+        </section>
+
+        <section class="panel workspace-info-panel" id="settings-section" aria-labelledby="settings-title">
+          <div><p class="eyebrow">APPLICATION SETTINGS</p><h2 id="settings-title">Local configuration</h2><p class="subtitle">The permanent Gemini key stays in backend/.env and is never returned to this page.</p></div>
+          <dl class="settings-summary"><div><dt>Gemini model</dt><dd id="settings-model">Loading…</dd></div><div><dt>Live voice model</dt><dd id="settings-live-model">Loading</dd></div><div><dt>Screenshot size limit</dt><dd id="settings-upload-limit">Loading…</dd></div><div><dt>Storage</dt><dd>Local SQLite</dd></div><div><dt>Voice</dt><dd>Gemini Live with browser speech fallback</dd></div></dl>
+        </section>
+
+        <dialog class="confirm-dialog" id="save-confirmation" aria-labelledby="save-dialog-title">
+          <form method="dialog">
+            <h2 id="save-dialog-title">Save this bug report?</h2>
+            <p>Saving stores this report in your local SQLite database.</p>
+            <div class="report-actions"><button class="button button-mic" value="cancel">Cancel</button><button class="button button-primary" id="confirm-save-button" value="confirm">Save report</button></div>
+          </form>
+        </dialog>
+
+        <dialog class="confirm-dialog" id="delete-confirmation" aria-labelledby="delete-dialog-title">
+          <form method="dialog">
+            <h2 id="delete-dialog-title">Delete this report?</h2>
+            <p id="delete-confirmation-message">This permanently removes the saved report from the local database.</p>
+            <div class="report-actions"><button class="button button-mic" value="cancel">Cancel</button><button class="button button-danger" id="confirm-delete-button" value="confirm">Delete report</button></div>
+          </form>
+        </dialog>
+
+        <footer><span>QARP Voice Tool <span aria-hidden="true">·</span> Phase 8 validation</span><span>Designed for careful, human-reviewed reporting</span></footer>
+      </main>
+      </div>
+    </div>
+  </body>
+</html>

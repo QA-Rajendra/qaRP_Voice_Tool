@@ -1,0 +1,25 @@
+{
+  "name": "ai-qa-bug-generator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A local assistant for turning bug descriptions into reviewable QA reports.",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node --watch backend/server.js",
+    "test": "node --test",
+    "smoke:gemini": "node scripts/gemini-smoke.js"
+  },
+  "dependencies": {
+    "@google/genai": "^3.6.0",
+    "dotenv": "^18.0.10",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "multer": "^2.5.0",
+    "sql.js": "^1.16.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "playwright": "^1.65.1"
+  }
+}
