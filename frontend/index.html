@@ -4,12 +4,29 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f4f6fb">
+    <meta name="description" content="QARP Voice Tool – AI-powered QA bug reporting with Gemini Live Voice API">
     <title>QARP Voice Tool</title>
     <link rel="stylesheet" href="/style.css">
     <script src="/app.js" defer></script>
+    <style>
+      /* Mic button pulsing animation when recording */
+      @keyframes mic-pulse {
+        0%   { box-shadow: 0 0 0 0 rgba(180, 69, 85, 0.55); }
+        70%  { box-shadow: 0 0 0 12px rgba(180, 69, 85, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(180, 69, 85, 0); }
+      }
+      .button-mic[aria-pressed="true"] {
+        background: #fdebed;
+        color: #b44555;
+        animation: mic-pulse 1.4s ease-out infinite;
+      }
+      .button-mic[aria-pressed="true"]:hover { background: #fbd9de; }
+    </style>
   </head>
   <body>
     <div class="app-shell">
+
+      <!-- ===== TOPBAR ===== -->
       <header class="topbar">
         <a class="brand" href="/" aria-label="QARP Voice Tool home">
           <span class="brand-mark" aria-hidden="true">Q</span>
@@ -17,20 +34,37 @@
         </a>
         <div class="topbar-status-group">
           <div class="local-badge"><span aria-hidden="true"></span> Local workspace</div>
+          <!-- API key entry form -->
           <form class="api-key-entry" id="api-key-form" autocomplete="off">
             <label class="visually-hidden" for="api-key-input">Gemini API key</label>
-            <input id="api-key-input" name="apiKey" type="password" placeholder="Paste Gemini API key" autocomplete="new-password" spellcheck="false" maxlength="500">
+            <input
+              id="api-key-input"
+              name="apiKey"
+              type="password"
+              placeholder="Paste Gemini API key"
+              autocomplete="new-password"
+              spellcheck="false"
+              maxlength="500"
+            >
             <button class="api-key-button" id="api-key-check" type="submit">Check &amp; use</button>
           </form>
+          <!-- Gemini connection status indicator -->
           <div class="api-status" id="api-status" data-state="checking" role="status" aria-live="polite">
             <span class="api-status-dot" aria-hidden="true"></span>
             <span id="api-status-label">Checking Gemini…</span>
-            <button class="api-status-refresh" id="api-status-refresh" type="button" aria-label="Check Gemini API connection" title="Check Gemini API connection">↻</button>
+            <button
+              class="api-status-refresh"
+              id="api-status-refresh"
+              type="button"
+              aria-label="Check Gemini API connection"
+              title="Refresh Gemini connection status"
+            >↻</button>
           </div>
         </div>
       </header>
 
       <div class="app-layout">
+        <!-- ===== SIDEBAR ===== -->
         <aside class="app-sidebar" aria-label="Application navigation">
           <p class="sidebar-heading">WORKSPACE</p>
           <nav class="sidebar-nav">
@@ -40,114 +74,269 @@
           <p class="sidebar-note">AI requests send selected content to Google Gemini. Saved reports stay in local SQLite.</p>
         </aside>
 
-      <main class="dashboard">
-        <!-- DASHBOARD -->
-        <section class="welcome" id="dashboard-overview" aria-labelledby="page-title">
-          <div>
-            <p class="eyebrow">BUG REPORT STUDIO</p>
-            <h1 id="page-title">Turn observations into clear bug reports.</h1>
-            <p class="subtitle">Describe what happened in English or Marathi. Review every detail before saving.</p>
-          </div>
-          <div class="step-indicator"><span>01</span> Describe the issue <i></i><span class="muted-step">02 Review report</span></div>
-        </section>
+        <!-- ===== MAIN CONTENT ===== -->
+        <main class="dashboard">
 
-        <section class="metrics-grid" aria-label="Reports and analytics">
-          <article class="metric-card"><span>Total Bugs</span><strong id="metric-total-bugs">—</strong></article>
-          <article class="metric-card"><span>Open Bugs</span><strong id="metric-open-bugs">—</strong></article>
-          <article class="metric-card"><span>Critical Bugs</span><strong id="metric-critical-bugs">—</strong></article>
-          <article class="metric-card"><span>Resolved Bugs</span><strong id="metric-resolved-bugs">—</strong></article>
-          <article class="metric-card"><span>Generated Reports</span><strong id="metric-generated-reports">—</strong></article>
-          <article class="metric-card"><span>AI Analysis History</span><strong id="metric-ai-history">—</strong><small>Saved locally</small></article>
-        </section>
+          <!-- ===== DASHBOARD SECTION ===== -->
+          <section class="welcome" id="dashboard-overview" aria-labelledby="page-title">
+            <div>
+              <p class="eyebrow">BUG REPORT STUDIO</p>
+              <h1 id="page-title">Turn observations into clear bug reports.</h1>
+              <p class="subtitle">Describe what happened in English or Marathi. Review every detail before saving.</p>
+            </div>
+            <div class="step-indicator">
+              <span>01</span>
+              Describe the issue
+              <i></i>
+              <span class="muted-step">02 Review report</span>
+            </div>
+          </section>
 
-        <!-- AI VOICE ASSISTANT -->
-        <section class="panel intake-panel" id="voice-assistant-section" aria-labelledby="intake-title">
-          <div class="panel-heading">
-            <div class="heading-icon purple" aria-hidden="true">✳</div>
-            <div><h2 id="intake-title">AI Voice Assistant</h2><p>Describe the bug using voice or text. Start with what you saw and what you expected.</p></div>
-          </div>
-          <label class="field-label" for="description">Bug description <span>Required</span></label>
-          <textarea id="description" rows="8" placeholder="For example: After entering valid credentials on the login page, clicking Login does nothing…"></textarea>
-          <div class="input-meta"><span id="char-count">0 characters</span><label for="language">Browser fallback language
-            <select id="language"><option value="auto">Auto detect</option><option value="mr">मराठी</option><option value="en">English</option></select>
-          </label></div>
-          <div class="intake-actions">
-            <button class="button button-secondary" id="clarify-button" type="button" hidden>Ask follow-up questions</button>
-            <button class="button button-primary" id="generate-button" type="button">Generate report</button>
-            <button class="button button-mic" id="mic-button" type="button" aria-label="Start Gemini Live voice"><span aria-hidden="true">●</span> Start voice assistant</button>
-            <button class="button button-secondary browser-voice-button" id="browser-voice-button" type="button" hidden>Use browser speech input</button>
-          </div>
-          <p class="voice-status" id="voice-status" role="status" aria-live="polite">Gemini Live voice is ready to connect.</p>
-          <div class="live-voice-output" aria-live="polite">
-            <p id="voice-language-indicator" class="voice-language-indicator">Language: detected while you speak</p>
-            <p id="live-transcript" class="live-transcript">Your editable voice transcript will appear here.</p>
-            <p id="live-response" class="live-response" hidden></p>
-          </div>
-          <section class="clarification-box" id="clarification-panel" aria-labelledby="clarification-title" hidden>
-            <h3 id="clarification-title">Clarifying questions</h3>
-            <div class="chat-thread" id="chat-thread" role="log" aria-live="polite" aria-relevant="additions text"></div>
-            <form id="answer-form" hidden>
-              <label class="field-label" for="follow-up-answer">Your answer</label>
-              <textarea id="follow-up-answer" rows="3" placeholder="Type a reply or use voice input above"></textarea>
-              <button class="button button-primary answer-button" id="send-answer-button" type="submit">Send answer</button>
+          <!-- Metrics grid: 6 cards -->
+          <section class="metrics-grid" aria-label="Reports and analytics">
+            <article class="metric-card">
+              <span>Total Bugs</span>
+              <strong id="metric-total-bugs">—</strong>
+            </article>
+            <article class="metric-card">
+              <span>Open Bugs</span>
+              <strong id="metric-open-bugs">—</strong>
+            </article>
+            <article class="metric-card">
+              <span>Critical Bugs</span>
+              <strong id="metric-critical-bugs">—</strong>
+            </article>
+            <article class="metric-card">
+              <span>Resolved Bugs</span>
+              <strong id="metric-resolved-bugs">—</strong>
+            </article>
+            <article class="metric-card">
+              <span>Generated Reports</span>
+              <strong id="metric-generated-reports">—</strong>
+            </article>
+            <article class="metric-card">
+              <span>AI Analysis History</span>
+              <strong id="metric-ai-history">—</strong>
+              <small>Saved locally</small>
+            </article>
+          </section>
+
+          <!-- ===== AI VOICE ASSISTANT SECTION ===== -->
+          <section class="panel intake-panel" id="voice-assistant-section" aria-labelledby="intake-title">
+            <div class="panel-heading">
+              <div class="heading-icon purple" aria-hidden="true">✳</div>
+              <div>
+                <h2 id="intake-title">AI Voice Assistant</h2>
+                <p>Describe the bug using voice or text. Start with what you saw and what you expected.</p>
+              </div>
+            </div>
+
+            <!-- Bug description textarea -->
+            <label class="field-label" for="description">
+              Bug description <span>Required</span>
+            </label>
+            <textarea
+              id="description"
+              rows="8"
+              placeholder="For example: After entering valid credentials on the login page, clicking Login does nothing…"
+              aria-required="true"
+            ></textarea>
+            <div class="input-meta">
+              <span id="char-count">0 characters</span>
+              <label for="language">
+                Browser fallback language
+                <select id="language" aria-label="Fallback language for browser speech input">
+                  <option value="auto">Auto detect</option>
+                  <option value="mr">मराठी</option>
+                  <option value="en">English</option>
+                </select>
+              </label>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="intake-actions">
+              <button class="button button-secondary" id="clarify-button" type="button" hidden>
+                Ask follow-up questions
+              </button>
+              <button class="button button-primary" id="generate-button" type="button">
+                Generate report
+              </button>
+              <!-- Gemini Live mic button -->
+              <button
+                class="button button-mic"
+                id="mic-button"
+                type="button"
+                aria-label="Start Gemini Live voice session"
+                aria-pressed="false"
+              >
+                <span aria-hidden="true">●</span> Start voice assistant
+              </button>
+              <!-- Browser SpeechRecognition fallback (shown only if Live unavailable) -->
+              <button
+                class="button button-secondary browser-voice-button"
+                id="browser-voice-button"
+                type="button"
+                hidden
+              >Use browser speech input</button>
+            </div>
+
+            <!-- Voice session status -->
+            <p class="voice-status" id="voice-status" role="status" aria-live="polite">
+              Gemini Live voice is ready to connect.
+            </p>
+
+            <!-- Live voice output area -->
+            <div class="live-voice-output" aria-live="polite" aria-atomic="false">
+              <p id="voice-language-indicator" class="voice-language-indicator">
+                Language: detected while you speak
+              </p>
+              <p id="live-transcript" class="live-transcript">
+                Your editable voice transcript will appear here.
+              </p>
+              <p id="live-response" class="live-response" hidden></p>
+            </div>
+
+            <!-- Clarification chat thread (hidden until "Ask follow-up" is clicked) -->
+            <section
+              class="clarification-box"
+              id="clarification-panel"
+              aria-labelledby="clarification-title"
+              hidden
+            >
+              <h3 id="clarification-title">Clarifying questions</h3>
+              <div
+                class="chat-thread"
+                id="chat-thread"
+                role="log"
+                aria-live="polite"
+                aria-relevant="additions text"
+              ></div>
+              <form id="answer-form" hidden>
+                <label class="field-label" for="follow-up-answer">Your answer</label>
+                <textarea
+                  id="follow-up-answer"
+                  rows="3"
+                  placeholder="Type a reply or use voice input above"
+                ></textarea>
+                <button class="button button-primary answer-button" id="send-answer-button" type="submit">
+                  Send answer
+                </button>
+              </form>
+            </section>
+
+            <p class="privacy-note">
+              <span aria-hidden="true">▣</span> Nothing is saved until you choose Save.
+            </p>
+          </section>
+
+          <!-- ===== REPORT EDITOR (hidden until report is generated) ===== -->
+          <section
+            class="panel report-editor"
+            id="report-editor"
+            aria-labelledby="report-editor-title"
+            hidden
+          >
+            <div class="report-editor-heading">
+              <div>
+                <p class="eyebrow">REVIEW BEFORE SAVING</p>
+                <h2 id="report-editor-title">Bug report draft</h2>
+                <p class="subtitle">Edit any field. AI suggestions remain marked until you confirm them by editing.</p>
+              </div>
+              <div class="badge-legend" aria-label="Field badge legend">
+                <span class="badge confirmed">Confirmed</span>
+                <span class="badge suggested">AI suggested</span>
+                <span class="badge missing">Missing</span>
+              </div>
+            </div>
+
+            <!-- AI analysis panel (confirmed facts + assumptions/missing) -->
+            <section class="analysis-panel" aria-labelledby="analysis-title">
+              <h3 id="analysis-title">AI bug analysis</h3>
+              <div class="analysis-columns">
+                <div>
+                  <h4>Confirmed facts</h4>
+                  <ul id="analysis-facts"></ul>
+                </div>
+                <div>
+                  <h4>Assumptions and missing information</h4>
+                  <ul id="analysis-open-items"></ul>
+                </div>
+              </div>
+            </section>
+
+            <!-- Dynamic report form -->
+            <form id="report-form">
+              <div class="report-field-grid" id="report-field-grid"></div>
+              <div class="report-actions">
+                <button class="button button-primary" id="save-report-button" type="button">
+                  Save report
+                </button>
+                <button class="button button-secondary" id="copy-report-button" type="button">
+                  Copy report
+                </button>
+                <button class="button button-mic" id="reset-report-button" type="button">
+                  Reset
+                </button>
+              </div>
+              <!-- Collapsible formatted report preview -->
+              <details class="formatted-report-preview">
+                <summary>Preview formatted report</summary>
+                <pre id="report-copy-preview"></pre>
+              </details>
             </form>
-          </section>
-          <p class="privacy-note"><span aria-hidden="true">▣</span> Nothing is saved until you choose Save.</p>
-        </section>
 
-        <!-- REPORT EDITOR (shown after generation) -->
-        <section class="panel report-editor" id="report-editor" aria-labelledby="report-editor-title" hidden>
-          <div class="report-editor-heading">
-            <div><p class="eyebrow">REVIEW BEFORE SAVING</p><h2 id="report-editor-title">Bug report draft</h2><p class="subtitle">Edit any field. AI suggestions remain marked until you confirm them by editing.</p></div>
-            <div class="badge-legend" aria-label="Field badge legend"><span class="badge confirmed">Confirmed</span><span class="badge suggested">AI suggested</span><span class="badge missing">Missing</span></div>
-          </div>
-          <section class="analysis-panel" aria-labelledby="analysis-title">
-            <h3 id="analysis-title">AI bug analysis</h3>
-            <div class="analysis-columns">
-              <div><h4>Confirmed facts</h4><ul id="analysis-facts"></ul></div>
-              <div><h4>Assumptions and missing information</h4><ul id="analysis-open-items"></ul></div>
+            <!-- Save/validation status message -->
+            <p class="report-status" id="report-status" role="status" aria-live="polite"></p>
+          </section>
+
+          <!-- ===== STATUS PANEL ===== -->
+          <section class="panel status-panel" aria-live="polite" aria-labelledby="status-title">
+            <div class="status-icon" aria-hidden="true">i</div>
+            <div>
+              <h2 id="status-title">Ready when you are</h2>
+              <p id="status-message">Type a description or use voice input. Nothing is saved yet.</p>
             </div>
           </section>
-          <form id="report-form">
-            <div class="report-field-grid" id="report-field-grid"></div>
-            <div class="report-actions">
-              <button class="button button-primary" id="save-report-button" type="button">Save report</button>
-              <button class="button button-secondary" id="copy-report-button" type="button">Copy report</button>
-              <button class="button button-mic" id="reset-report-button" type="button">Reset</button>
-            </div>
-            <details class="formatted-report-preview">
-              <summary>Preview formatted report</summary>
-              <pre id="report-copy-preview"></pre>
-            </details>
-          </form>
-          <p class="report-status" id="report-status" role="status" aria-live="polite"></p>
-        </section>
 
-        <!-- STATUS PANEL -->
-        <section class="panel status-panel" aria-live="polite" aria-labelledby="status-title">
-          <div class="status-icon" aria-hidden="true">i</div><div><h2 id="status-title">Ready when you are</h2><p id="status-message">Type a description or use voice input. Nothing is saved yet.</p></div>
-        </section>
+          <!-- ===== DIALOGS ===== -->
 
-        <!-- DIALOGS -->
-        <dialog class="confirm-dialog" id="save-confirmation" aria-labelledby="save-dialog-title">
-          <form method="dialog">
-            <h2 id="save-dialog-title">Save this bug report?</h2>
-            <p>Saving stores this report in your local SQLite database.</p>
-            <div class="report-actions"><button class="button button-mic" value="cancel">Cancel</button><button class="button button-primary" id="confirm-save-button" value="confirm">Save report</button></div>
-          </form>
-        </dialog>
+          <!-- Save confirmation dialog -->
+          <dialog class="confirm-dialog" id="save-confirmation" aria-labelledby="save-dialog-title">
+            <form method="dialog">
+              <h2 id="save-dialog-title">Save this bug report?</h2>
+              <p>Saving stores this report in your local SQLite database.</p>
+              <div class="report-actions">
+                <button class="button button-mic" value="cancel">Cancel</button>
+                <button class="button button-primary" id="confirm-save-button" value="confirm">
+                  Save report
+                </button>
+              </div>
+            </form>
+          </dialog>
 
-        <dialog class="confirm-dialog" id="delete-confirmation" aria-labelledby="delete-dialog-title">
-          <form method="dialog">
-            <h2 id="delete-dialog-title">Delete this report?</h2>
-            <p id="delete-confirmation-message">This permanently removes the saved report from the local database.</p>
-            <div class="report-actions"><button class="button button-mic" value="cancel">Cancel</button><button class="button button-danger" id="confirm-delete-button" value="confirm">Delete report</button></div>
-          </form>
-        </dialog>
+          <!-- Delete confirmation dialog -->
+          <dialog class="confirm-dialog" id="delete-confirmation" aria-labelledby="delete-dialog-title">
+            <form method="dialog">
+              <h2 id="delete-dialog-title">Delete this report?</h2>
+              <p id="delete-confirmation-message">
+                This permanently removes the saved report from the local database.
+              </p>
+              <div class="report-actions">
+                <button class="button button-mic" value="cancel">Cancel</button>
+                <button class="button button-danger" id="confirm-delete-button" value="confirm">
+                  Delete report
+                </button>
+              </div>
+            </form>
+          </dialog>
 
-        <footer><span>QARP Voice Tool <span aria-hidden="true">·</span> AI Voice Assistant</span><span>Designed for careful, human-reviewed reporting</span></footer>
-      </main>
-      </div>
-    </div>
+          <footer>
+            <span>QARP Voice Tool <span aria-hidden="true">·</span> AI Voice Assistant</span>
+            <span>Designed for careful, human-reviewed reporting</span>
+          </footer>
+
+        </main>
+      </div><!-- /.app-layout -->
+    </div><!-- /.app-shell -->
   </body>
 </html>
