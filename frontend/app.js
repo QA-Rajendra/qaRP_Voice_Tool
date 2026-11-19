@@ -6,9 +6,9 @@
  *   2. DOM REFS       – cached element queries
  *   3. HELPERS        – formatting, language detection and UI utilities
  *   4. VOICE ENGINE   – browser speech recognition
- *   5. LOCAL VOICE    – Ollama chat and browser speech output
+ *   5. VOICE CHAT     – selected AI provider and browser speech output
  *   6. REPORT ENGINE  – generation, form rendering, save/copy
- *   7. API KEY        – Gemini status check + key submission
+ *   7. API KEY        – configured provider status + key submission
  *   8. EVENT LISTENERS
  *   9. INIT
  */
@@ -29,6 +29,8 @@ let voiceReplyPending = false;
 let isSpeakingVoiceReply = false;
 let englishDescriptionReviewed = false;
 let isReportEditing = false;
+let aiProvider = 'gemini';
+let aiProviderName = 'Gemini';
 
 /** QA-assistant conversation history [{role, content}]. */
 let conversationMessages = [];
@@ -95,7 +97,9 @@ const apiStatusLabel       = document.querySelector('#api-status-label');
 const apiStatusRefresh     = document.querySelector('#api-status-refresh');
 const apiKeyForm           = document.querySelector('#api-key-form');
 const apiKeyInput          = document.querySelector('#api-key-input');
+const apiKeyLabel          = document.querySelector('#api-key-label');
 const apiKeyCheck          = document.querySelector('#api-key-check');
+const apiKeyHelp           = document.querySelector('#api-key-help');
 
 /* ============================================================
    3. HELPERS
@@ -231,7 +235,7 @@ async function postJson(url, body) {
 
 function setVoiceStatus(state, message) {
   voiceStatus.dataset.state = state;
-  voiceStatus.textContent = 'Local voice: ' + message;
+  voiceStatus.textContent = 'Voice assistant: ' + message;
   const active = ['recording', 'requesting permission'].includes(state);
   micButton.setAttribute('aria-pressed', String(active));
   micButton.setAttribute('aria-label', active ? 'Stop voice assistant' : 'Start voice assistant');
@@ -344,7 +348,8 @@ function speakVoiceReply(text) {
 
 async function sendVoiceMessage(message, context) {
   voiceReplyPending = true;
-  setVoiceStatus('processing', 'Waiting for the local Ollama assistant.');
+  const voiceProviderName = aiProvider === 'openrouter' ? 'OpenRouter' : 'local Ollama';
+  setVoiceStatus('processing', 'Waiting for the ' + voiceProviderName + ' assistant.');
   try {
     const response = await fetch('/api/voice/chat', {
       method: 'POST',
@@ -811,7 +816,7 @@ async function convertToProfessionalEnglish() {
   convertButton.disabled = true;
   convertButton.textContent = 'Converting…';
   statusTitle.textContent = 'Converting to professional English';
-  statusMessage.textContent = 'Gemini is preserving the reported behavior without adding missing details.';
+  statusMessage.textContent = aiProviderName + ' is preserving the reported behavior without adding missing details.';
 
   try {
     const result = await postJson('/api/bug-reports/english-description', request);
@@ -894,7 +899,7 @@ async function generateReport() {
   generateButton.disabled = true;
   generateButton.textContent = 'Generating…';
   statusTitle.textContent = 'Building your draft';
-  statusMessage.textContent = 'Gemini is generating the exact 22-field report from your reviewed English description.';
+  statusMessage.textContent = aiProviderName + ' is generating the exact 22-field report from your reviewed English description.';
   reportStatus.textContent = '';
 
   try {
@@ -1052,33 +1057,62 @@ function resetWorkspace() {
 }
 
 /* ============================================================
-   7. API KEY  –  Gemini connection status
+   7. API KEY  –  active provider status and key submission
    ============================================================ */
 
-/**
- * Checks the Gemini API connection status and updates the status indicator.
- */
-async function checkGeminiStatus() {
+function setProviderDetails(provider) {
+  aiProvider = provider === 'openrouter' ? 'openrouter' : 'gemini';
+  aiProviderName = aiProvider === 'openrouter' ? 'OpenRouter' : 'Gemini';
+  apiKeyLabel.textContent = aiProviderName + ' API key';
+  apiKeyInput.placeholder = 'Paste ' + aiProviderName + ' API key';
+  apiKeyHelp.href = aiProvider === 'openrouter'
+    ? 'https://openrouter.ai/settings/keys'
+    : 'https://aistudio.google.com/apikey';
+  apiKeyHelp.textContent = aiProvider === 'openrouter' ? 'Get free key' : 'Get key';
+}
+
+async function checkAiProviderStatus() {
   apiStatus.dataset.state = 'checking';
-  apiStatusLabel.textContent = 'Checking Gemini…';
+  apiStatusLabel.textContent = 'Checking ' + aiProviderName + '…';
   apiStatusRefresh.disabled = true;
   try {
-    const response = await fetch('/api/gemini/status', { method: 'POST' });
-    if (!response.ok) throw new Error('Gemini connection check failed.');
+    const response = await fetch('/api/ai/status', { method: 'POST' });
+    if (!response.ok) throw new Error(aiProviderName + ' connection check failed.');
     const result = await response.json();
     if (result.connected) {
       apiStatus.dataset.state = 'connected';
-      apiStatusLabel.textContent = 'Gemini connected';
+      apiStatusLabel.textContent = aiProviderName + ' connected';
     } else {
       apiStatus.dataset.state = 'disconnected';
-      apiStatusLabel.textContent = result.configured === false ? 'API key not configured' : 'Gemini not connected';
+      apiStatusLabel.textContent = result.configured === false
+        ? aiProviderName + ' API key not configured'
+        : aiProviderName + ' not connected';
     }
   } catch (_) {
     apiStatus.dataset.state = 'disconnected';
-    apiStatusLabel.textContent = 'Gemini not connected';
+    apiStatusLabel.textContent = aiProviderName + ' not connected';
   } finally {
     apiStatusRefresh.disabled = false;
   }
+}
+
+async function initializeAiProvider() {
+  try {
+    const response = await fetch('/api/config');
+    if (!response.ok) throw new Error('Could not load AI provider configuration.');
+    const config = await response.json();
+    setProviderDetails(config.aiProvider);
+    if (recognition) {
+      if (aiProvider === 'openrouter') {
+        setVoiceStatus('idle', 'Speech input is ready. Add an OpenRouter key above to enable AI replies.');
+      } else {
+        setVoiceStatus('idle', 'Speech input is ready. Start Ollama to enable local assistant replies.');
+      }
+    }
+  } catch (_) {
+    setProviderDetails('gemini');
+  }
+  await checkAiProviderStatus();
 }
 
 /* ============================================================
@@ -1202,14 +1236,16 @@ apiKeyForm.addEventListener('submit', async (event) => {
   apiKeyCheck.disabled = true;
   apiStatusRefresh.disabled = true;
   try {
-    const response = await fetch('/api/gemini/key', {
+    const response = await fetch('/api/ai/key', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ apiKey }),
     });
     const result = await response.json();
     apiStatus.dataset.state = result.connected ? 'connected' : 'disconnected';
-    apiStatusLabel.textContent = result.connected ? 'Gemini connected' : 'Key not connected';
+    apiStatusLabel.textContent = result.connected
+      ? aiProviderName + ' connected'
+      : (result.message || 'Key not connected');
   } catch (_) {
     apiStatus.dataset.state = 'disconnected';
     apiStatusLabel.textContent = 'Connection check failed';
@@ -1221,11 +1257,11 @@ apiKeyForm.addEventListener('submit', async (event) => {
 });
 
 // --- Refresh status button ---
-apiStatusRefresh.addEventListener('click', checkGeminiStatus);
+apiStatusRefresh.addEventListener('click', checkAiProviderStatus);
 
 /* ============================================================
    9. INIT
    ============================================================ */
 
 configureSpeechRecognition();
-checkGeminiStatus();
+initializeAiProvider();

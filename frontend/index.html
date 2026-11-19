@@ -34,30 +34,31 @@
         </a>
         <div class="topbar-status-group">
           <div class="local-badge"><span aria-hidden="true"></span> Local workspace</div>
-          <!-- API key entry form -->
+          <!-- Provider API key entry form -->
           <form class="api-key-entry" id="api-key-form" autocomplete="off">
-            <label class="visually-hidden" for="api-key-input">Gemini API key</label>
+            <label class="visually-hidden" id="api-key-label" for="api-key-input">AI provider API key</label>
             <input
               id="api-key-input"
               name="apiKey"
               type="password"
-              placeholder="Paste Gemini API key"
+              placeholder="Paste configured AI provider key"
               autocomplete="new-password"
               spellcheck="false"
               maxlength="500"
             >
             <button class="api-key-button" id="api-key-check" type="submit">Check &amp; use</button>
+            <a class="api-key-help" id="api-key-help" href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer">Get free key</a>
           </form>
-          <!-- Gemini connection status indicator -->
+          <!-- Active AI provider connection status -->
           <div class="api-status" id="api-status" data-state="checking" role="status" aria-live="polite">
             <span class="api-status-dot" aria-hidden="true"></span>
-            <span id="api-status-label">Checking Gemini…</span>
+            <span id="api-status-label">Checking AI provider…</span>
             <button
               class="api-status-refresh"
               id="api-status-refresh"
               type="button"
-              aria-label="Check Gemini API connection"
-              title="Refresh Gemini connection status"
+              aria-label="Check AI provider connection"
+              title="Refresh AI provider connection status"
             >↻</button>
           </div>
         </div>
@@ -70,7 +71,7 @@
           <nav class="sidebar-nav">
             <a href="#voice-assistant-section">AI Voice Assistant</a>
           </nav>
-          <p class="sidebar-note">Report and research requests send selected content to Google Gemini. Voice replies use local Ollama. Saved reports stay in local SQLite.</p>
+          <p class="sidebar-note">AI requests send selected content to the configured provider. Google-grounded research uses Gemini. Saved reports stay in local SQLite.</p>
         </aside>
 
         <!-- ===== MAIN CONTENT ===== -->
@@ -142,7 +143,7 @@
             </div>
 
             <p class="voice-status" id="voice-status" role="status" aria-live="polite">
-              Local voice is ready. Start Ollama to enable assistant replies.
+              Voice input is ready. Configure the selected AI provider to enable assistant replies.
             </p>
 
             <div class="voice-output" aria-live="polite" aria-atomic="false">
@@ -206,7 +207,7 @@
             </section>
 
             <p class="privacy-note">
-              <span aria-hidden="true">▣</span> Browser speech recognition may use an internet service. Voice replies use local Ollama. Nothing is saved until you choose Save.
+              <span aria-hidden="true">▣</span> Browser speech recognition may use an internet service. Assistant replies use the configured AI provider. Nothing is saved until you choose Save.
             </p>
           </section>
 

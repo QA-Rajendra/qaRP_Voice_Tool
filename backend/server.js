@@ -12,9 +12,11 @@ const { createClarificationRouter } = require('./routes/clarification');
 const { createResearchRouter } = require('./routes/research');
 const { createVoiceRouter } = require('./routes/voice');
 const { checkGeminiConnection, verifyAndUseGeminiApiKey } = require('./services/gemini-client');
+const { createAiProviderService } = require('./services/ai-provider-service');
 
-function createApp({ clarificationService, generationService, repository, researchService, screenshotAnalysisService, qaSuggestionsService, voiceChatService } = {}) {
-  const { maxUploadMb, geminiModel } = parseConfig();
+function createApp({ clarificationService, generationService, repository, researchService, screenshotAnalysisService, qaSuggestionsService, voiceChatService, aiProviderService } = {}) {
+  const { maxUploadMb, aiProvider, geminiModel, openRouterModel } = parseConfig();
+  const providerService = aiProviderService || createAiProviderService();
   const app = express();
   app.use(helmet({
     contentSecurityPolicy: {
@@ -27,7 +29,38 @@ function createApp({ clarificationService, generationService, repository, resear
   app.use('/api', createRateLimiter({ max: 120 }));
   app.use(express.static(path.join(__dirname, '..', 'frontend')));
   app.get('/api/health', (_request, response) => response.json({ status: 'ok' }));
-  app.get('/api/config', (_request, response) => response.json({ maxUploadMb, geminiModel }));
+  app.get('/api/config', (_request, response) => response.json({
+    maxUploadMb,
+    aiProvider,
+    aiModel: aiProvider === 'openrouter' ? openRouterModel : geminiModel,
+    geminiModel,
+  }));
+  app.post('/api/ai/status',
+    createRateLimiter({ max: 6, message: 'Please wait before checking the AI provider again.' }),
+    async (_request, response, next) => {
+      try {
+        response.json(await providerService.checkConnection());
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+  app.post('/api/ai/key',
+    createRateLimiter({ max: 6, message: 'Please wait before checking another AI provider key.' }),
+    async (request, response) => {
+      const apiKey = request.body?.apiKey;
+      if (typeof apiKey !== 'string' || !apiKey.trim() || apiKey.length > 500) {
+        response.status(400).json({ connected: false, message: 'Enter a valid API key for the configured AI provider.' });
+        return;
+      }
+      const result = await providerService.verifyAndUseApiKey(apiKey);
+      const providerName = aiProvider === 'openrouter' ? 'OpenRouter' : 'Gemini';
+      response.json({
+        ...result,
+        message: result.connected ? `${providerName} key verified for this session.` : `${providerName} key could not connect. Check the key and network.`,
+      });
+    },
+  );
   app.post('/api/gemini/status', createRateLimiter({ max: 6, message: 'Please wait before checking Gemini again.' }), async (_request, response, next) => {
     try {
       response.json(await checkGeminiConnection());

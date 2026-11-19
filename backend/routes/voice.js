@@ -2,7 +2,7 @@ const express = require('express');
 const { z } = require('zod');
 const { createRateLimiter } = require('../middleware/rate-limit');
 const { validate } = require('../middleware/validate');
-const { createOllamaVoiceService } = require('../services/ollama-voice-service');
+const { createVoiceService } = require('../services/voice-service');
 
 const VoiceChatRequestSchema = z.object({
   message: z.string().trim().min(1).max(2000),
@@ -13,7 +13,7 @@ const VoiceChatRequestSchema = z.object({
   }).strict()).max(12).default([]),
 }).strict();
 
-function createVoiceRouter({ voiceChatService = createOllamaVoiceService() } = {}) {
+function createVoiceRouter({ voiceChatService = createVoiceService() } = {}) {
   const router = express.Router();
   router.post(
     '/chat',

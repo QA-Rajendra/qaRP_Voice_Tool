@@ -7,11 +7,21 @@ function parseConfig(env = process.env) {
   const issues = [];
   const port = Number(env.PORT || 3000);
   const maxUploadMb = Number(env.MAX_UPLOAD_MB || 5);
+  const aiProvider = env.AI_PROVIDER?.trim().toLowerCase() || 'gemini';
+  const geminiModel = env.GEMINI_MODEL?.trim() || 'gemini-3.8-flash';
+  const openRouterModel = env.OPENROUTER_MODEL?.trim() || 'nvidia/nemotron-3.5-super-vl:free';
   const ollamaBaseUrl = (env.OLLAMA_BASE_URL?.trim() || 'http://127.0.0.1:11434').replace(/\/+$/, '');
   const ollamaModel = env.OLLAMA_MODEL?.trim() || 'qwen2.5:3b';
 
-  if (!env.GEMINI_API_KEY?.trim()) issues.push('GEMINI_API_KEY is missing. Add it to backend/.env.');
-  if (!env.GEMINI_MODEL?.trim()) issues.push('GEMINI_MODEL is missing. Set it in backend/.env.');
+  if (!['gemini', 'openrouter'].includes(aiProvider)) {
+    issues.push('AI_PROVIDER must be either gemini or openrouter.');
+  }
+  if (aiProvider === 'gemini' && !env.GEMINI_API_KEY?.trim()) {
+    issues.push('GEMINI_API_KEY is missing. Add it to backend/.env.');
+  }
+  if (aiProvider === 'openrouter' && !openRouterModel.endsWith(':free')) {
+    issues.push('OPENROUTER_MODEL must use a :free model variant to prevent paid requests.');
+  }
   try {
     if (!['http:', 'https:'].includes(new URL(ollamaBaseUrl).protocol)) {
       issues.push('OLLAMA_BASE_URL must use HTTP or HTTPS.');
@@ -30,8 +40,11 @@ function parseConfig(env = process.env) {
     throw error;
   }
   return {
+    aiProvider,
     geminiApiKey: env.GEMINI_API_KEY,
-    geminiModel: env.GEMINI_MODEL,
+    geminiModel,
+    openRouterApiKey: env.OPENROUTER_API_KEY?.trim() || '',
+    openRouterModel,
     ollamaBaseUrl,
     ollamaModel,
     port,

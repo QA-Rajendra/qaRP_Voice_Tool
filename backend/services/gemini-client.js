@@ -5,6 +5,12 @@ let clientPromise;
 async function getClient() {
   if (!clientPromise) {
     const config = parseConfig();
+    if (!config.geminiApiKey) {
+      const error = new Error('Google-grounded research requires GEMINI_API_KEY in backend/.env.');
+      error.status = 503;
+      error.code = 'GEMINI_KEY_MISSING';
+      throw error;
+    }
     clientPromise = import('@google/genai').then(({ GoogleGenAI }) => new GoogleGenAI({ apiKey: config.geminiApiKey }));
   }
   return clientPromise;
@@ -12,6 +18,10 @@ async function getClient() {
 
 async function requestStructuredJson({ input, schema, model }) {
   const config = parseConfig();
+  if (config.aiProvider === 'openrouter') {
+    const { requestOpenRouterStructuredJson } = require('./openrouter-client');
+    return requestOpenRouterStructuredJson({ input, schema, model });
+  }
   const client = await getClient();
   const response = await client.interactions.create({
     model: model || config.geminiModel,
@@ -28,6 +38,7 @@ async function requestStructuredJson({ input, schema, model }) {
 
 async function checkGeminiConnection() {
   const config = parseConfig();
+  if (!config.geminiApiKey) return { connected: false, configured: false };
   try {
     const client = await getClient();
     await client.models.get({ model: config.geminiModel });

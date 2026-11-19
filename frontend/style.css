@@ -173,6 +173,12 @@ a:focus-visible {
 }
 .api-key-button:hover { background: var(--blue-hover); }
 .api-key-button:disabled { opacity: .5; cursor: wait; }
+.api-key-help {
+  color: var(--text-secondary);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.api-key-help:hover { color: var(--text-primary); }
 
 /* API status pill */
 .api-status {
@@ -952,6 +958,7 @@ footer span span { margin: 0 4px; }
   .topbar-status-group { gap: 5px; }
   .api-key-entry input { width: 100px; height: 30px; }
   .api-key-button { height: 30px; padding: 0 8px; font-size: 10px; }
+  .api-key-help { display: none; }
   .api-status { font-size: 10px; min-height: 30px; }
   .intake-panel { padding: 18px 16px; }
   .report-editor { padding: 18px 16px; }

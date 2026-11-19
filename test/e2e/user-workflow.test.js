@@ -76,6 +76,7 @@ test('typed Marathi intake converts to reviewed English before report generation
     assert.match(homeText, /Download as TXT/);
     assert.match(homeText, /Download as PDF/);
     assert.doesNotMatch(appScript, /GEMINI_API_KEY/);
+    assert.doesNotMatch(appScript, /OPENROUTER_API_KEY/);
     if (process.env.GEMINI_API_KEY) assert.ok(!appScript.includes(process.env.GEMINI_API_KEY), 'Permanent key appeared in the browser script.');
 
     const description = 'लॉगिन पेजवर वैध माहिती टाकल्यानंतर लॉगिन बटन काम करत नाही.';

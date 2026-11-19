@@ -1,20 +1,20 @@
 # AI QA Bug Generator
 
-A local, single-user workspace for turning an English or Marathi bug description into a human-reviewed QA report. Reports are stored in a local SQLite database. AI features send the selected text or image to Google Gemini.
+A local, single-user workspace for turning an English or Marathi bug description into a human-reviewed QA report. Reports are stored in a local SQLite database. The selected AI provider receives the text or image needed for each request.
 
 ## Run on Windows
 
 1. Install Node.js LTS, then check `node -v` and `npm -v` in PowerShell.
 2. In the project folder, run `npm.cmd install`.
 3. For the browser E2E test, install Chromium once with `npm.cmd exec -- playwright install chromium`.
-4. Copy the key template with `Copy-Item .env.example backend/.env`, then open `backend/.env` in VS Code and add your Gemini API key. Keep the permanent key there; never put it in frontend files.
+4. Copy the key template with `Copy-Item .env.example backend/.env`. The default text provider is OpenRouter; create a key at [OpenRouter](https://openrouter.ai/settings/keys) and either paste it into the app's provider-key field or add it to `OPENROUTER_API_KEY` in `backend/.env`. Keep permanent keys server-side; never put them in frontend files.
 5. Start the app with `npm.cmd run dev` and open `http://localhost:3000`.
 6. Check the server with `Invoke-RestMethod http://localhost:3000/api/health`; it should return `status: ok`.
 7. Run automated tests with `npm.cmd test`. Gemini is mocked and the tests do not make live AI calls.
 
 For a normal start without the file watcher, use `npm.cmd start`. Do not host this local-only app publicly without first adding authentication and reviewing its security model.
 
-For local voice replies, install [Ollama](https://ollama.com/download) and run `ollama pull qwen2.5:3b`. The default local endpoint and model are configurable with `OLLAMA_BASE_URL` and `OLLAMA_MODEL` in `backend/.env`.
+The default OpenRouter model is a free variant. The app rejects non-free OpenRouter model IDs so it cannot silently route requests to a paid model. Free-model availability and quotas are set by OpenRouter and can change.
 
 ## Try the workflow
 
@@ -36,13 +36,17 @@ The server does not generate PDF bytes in this version. `format=pdf` returns `50
 
 `POST /api/bug-reports/:id/qa-suggestions` creates reproduction steps, positive, negative, and boundary scenarios, and regression cases. Every category is labelled **AI suggestion**, validated against a strict schema, and rate-limited. Suggestions are not stored automatically; applying them edits the report draft and requires the usual explicit save confirmation.
 
-## Gemini and privacy
+## AI providers and privacy
 
-Generation, clarification, research, screenshot analysis, and QA suggestions send the selected text or image to Google Gemini. Research runs only when requested. Screenshot analysis is limited to visible details. The permanent API key remains in `backend/.env`; `.gitignore` excludes that file, uploads, and local database data.
+Set `AI_PROVIDER=openrouter` (the default in `.env.example`) to use OpenRouter for conversion, report generation, clarification, screenshot analysis, QA suggestions, and voice replies. The default model is `nvidia/nemotron-3.5-super-vl:free`; its model ID ends in `:free`, and this app does not configure paid fallbacks. OpenRouter currently documents 50 free-model requests per day and 20 per minute for accounts that have purchased less than $10 in credits; check its [live limits documentation](https://openrouter.ai/docs/api-reference/limits.md) because availability and quotas can change.
+
+Create a free OpenRouter key at [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys). Enter it in the app header to keep it in server memory for the current process, or set `OPENROUTER_API_KEY` in `backend/.env` to keep it across restarts. The key is never sent to browser code. OpenRouter and its upstream model provider receive the selected description, report data, voice messages, or screenshot needed for each request.
+
+Google-grounded web research still uses Gemini and requires `GEMINI_API_KEY`; that feature may remain unavailable if the Gemini quota is exhausted. Set `AI_PROVIDER=gemini` to route structured text features back to Gemini. In that mode, voice replies use local Ollama (`OLLAMA_BASE_URL` and `OLLAMA_MODEL`), while browser speech input and output remain unchanged.
 
 AI analysis history is not currently recorded. Generated drafts and AI request content are not stored; only confirmed bug reports are saved.
 
-The report model is `GEMINI_MODEL` in `backend/.env`. Ollama voice replies use `OLLAMA_MODEL`; it defaults to `qwen2.5:3b`.
+Set `OPENROUTER_MODEL` to another currently available `:free` model if needed. The app rejects OpenRouter model IDs without the `:free` suffix to avoid accidental paid inference.
 
 Normal tests use deterministic mocks. A separate optional live check is available with `npm.cmd run smoke:gemini`. It sends one minimal request using the configured key and model, and it is not part of `npm.cmd test`.
 
@@ -50,7 +54,7 @@ Normal tests use deterministic mocks. A separate optional live check is availabl
 
 Voice input uses the browser's SpeechRecognition API. Availability depends on the browser, and its speech service may require an internet connection; it is not guaranteed to work offline. The recognized transcript is added to the description or clarification answer and remains editable. The language selector chooses Marathi or English recognition.
 
-Voice replies use the locally configured Ollama chat service and browser speech synthesis. Install Ollama, then run `ollama pull qwen2.5:3b`; the default server is `http://127.0.0.1:11434`. Set `OLLAMA_BASE_URL` or `OLLAMA_MODEL` in `backend/.env` to use another endpoint/model. Marathi speech output depends on the voices installed in the browser or operating system. Gemini remains in use for report generation, clarification, research, screenshot analysis, and QA suggestions.
+With `AI_PROVIDER=openrouter`, voice replies use the configured OpenRouter free model and browser speech synthesis. Browser speech recognition may require an internet connection. Marathi speech output depends on the voices installed in the browser or operating system. Google-grounded research continues to use Gemini.
 
 ## Upload limits and local data
 
@@ -67,7 +71,7 @@ For a visual check in your browser, also try these steps:
 - Convert typed Marathi or mixed-language text; review and confirm the English description before generating the report.
 - Check that the generated report contains exactly 22 fields and that missing information is marked rather than invented.
 - Edit the report, copy it, download TXT, and use the PDF print flow.
-- Start browser voice input with Ollama running; verify the transcript is editable and the local reply is spoken. Browser speech recognition may require an internet connection.
+- Start browser voice input with the configured provider key; verify the transcript is editable and the reply is spoken. Browser speech recognition may require an internet connection.
 - Ask a clarification question, answer it, generate, edit a field, and confirm Save.
 - Upload a valid image and an invalid or oversized image; verify the error is visible.
 - Search, filter, paginate, open, edit, and delete a saved report.
@@ -76,9 +80,10 @@ For a visual check in your browser, also try these steps:
 
 ## Troubleshooting
 
-- **Missing configuration:** add `GEMINI_API_KEY` and `GEMINI_MODEL` to `backend/.env`. `OLLAMA_BASE_URL` and `OLLAMA_MODEL` are optional; restart the server after edits.
+- **OpenRouter unavailable:** create a key at [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys), paste it into the app header, or set `OPENROUTER_API_KEY` in `backend/.env`. Confirm `AI_PROVIDER=openrouter` and that `OPENROUTER_MODEL` ends in `:free`.
 - **Port already in use:** set `PORT` to an unused integer in `backend/.env`, then restart.
-- **Voice unavailable:** allow microphone access on `localhost` and use a browser that supports SpeechRecognition. Speech recognition may need internet access. For assistant replies, start Ollama and install the configured model (for example, `ollama pull qwen2.5:3b`); typing still works without voice.
+- **Gemini research unavailable:** Google-grounded research still needs `GEMINI_API_KEY` and is subject to Gemini's quota.
+- **Voice unavailable:** allow microphone access on `localhost` and use a browser that supports SpeechRecognition. Speech recognition may need internet access. For AI replies, verify the configured provider key and quota; typing still works without voice.
 - **Image rejected:** use PNG, JPEG, WebP, or GIF and stay within `MAX_UPLOAD_MB`.
 - **AI request failed:** check network access, model availability, API quota, and the key. Run `npm.cmd run smoke:gemini` only when you intend to make a live request.
 - **PDF endpoint returns 501:** use the report's Print / Save as PDF button and choose Save as PDF in the browser dialog.
